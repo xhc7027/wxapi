@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="weixinapi-0.0.1" default="full-build">
+
+    <target name="full-build"
+            depends="clean,prepare,lint,phploc-ci,pdepend,phpmd-ci,phpcs-ci,phpcpd-ci,codecept,phpdox,-check-failure"/>
+
+    <!-- 配置构建模块工具本地所在路径 -->
+    <property name="pdepend" value="pdepend"/>
+    <property name="phpcpd" value="phpcpd"/>
+    <property name="phpcs" value="phpcs"/>
+    <property name="phpdox" value="phpdox"/>
+    <property name="phploc" value="phploc"/>
+    <property name="phpmd" value="phpmd"/>
+    <property name="codecept" value="codecept"/>
+
+    <target name="clean" unless="clean.done" description="清除上一次的构建痕迹">
+        <delete dir="${basedir}/build/api"/>
+        <delete dir="${basedir}/build/coverage"/>
+        <delete dir="${basedir}/build/logs"/>
+        <delete dir="${basedir}/build/pdepend"/>
+        <delete dir="${basedir}/build/phpdox"/>
+        <property name="clean.done" value="true"/>
+    </target>
+
+    <target name="prepare" unless="prepare.done" depends="clean" description="构建前准备">
+        <mkdir dir="${basedir}/build/api"/>
+        <mkdir dir="${basedir}/build/coverage"/>
+        <mkdir dir="${basedir}/build/logs"/>
+        <mkdir dir="${basedir}/build/pdepend"/>
+        <mkdir dir="${basedir}/build/phpdox"/>
+        <property name="prepare.done" value="true"/>
+    </target>
+
+    <target name="lint" unless="lint.done" description="源代码文件进行语法检查">
+        <apply executable="php" taskname="lint">
+            <arg value="-l"/>
+
+            <fileset dir="${basedir}">
+                <patternset>
+                    <exclude name="vendor/"/>
+                </patternset>
+                <include name="**/*.php"/>
+                <modified/>
+            </fileset>
+        </apply>
+
+        <property name="lint.done" value="true"/>
+    </target>
+
+    <target name="phploc-ci" unless="phploc.done" depends="prepare" description="PHP项目的结构分析">
+        <exec executable="${phploc}" taskname="phploc">
+            <arg value="--count-tests"/>
+            <arg value="--log-csv"/>
+            <arg path="${basedir}/build/logs/phploc.csv"/>
+            <arg value="--log-xml"/>
+            <arg path="${basedir}/build/logs/phploc.xml"/>
+            <arg path="${basedir}/assets"/>
+            <arg path="${basedir}/commons"/>
+            <arg path="${basedir}/components"/>
+            <arg path="${basedir}/config"/>
+            <arg path="${basedir}/controllers"/>
+            <arg path="${basedir}/models"/>
+            <arg path="${basedir}/modules"/>
+            <arg path="${basedir}/service"/>
+        </exec>
+
+        <property name="phploc.done" value="true"/>
+    </target>
+
+    <target name="pdepend" unless="pdepend.done" depends="prepare" description="计算软件度量">
+        <exec executable="${pdepend}" taskname="pdepend">
+            <arg value="--jdepend-xml=${basedir}/build/logs/jdepend.xml"/>
+            <arg value="--jdepend-chart=${basedir}/build/pdepend/dependencies.svg"/>
+            <arg value="--overview-pyramid=${basedir}/build/pdepend/overview-pyramid.svg"/>
+            <arg value="--ignore=${basedir}/vendor"/>
+            <arg path="${basedir}"/>
+        </exec>
+
+        <property name="pdepend.done" value="true"/>
+    </target>
+
+    <target name="phpmd-ci" unless="phpmd.done" depends="prepare" description="代码静态分析">
+        <exec executable="${phpmd}" taskname="phpmd">
+            <arg path="${basedir}"/>
+            <arg value="xml"/>
+            <arg path="${basedir}/build/phpmd.xml"/>
+            <arg value="--reportfile"/>
+            <arg path="${basedir}/build/logs/pmd.xml"/>
+            <arg value="--exclude"/>
+            <arg path="${basedir}/vendor"/>
+        </exec>
+
+        <property name="phpmd.done" value="true"/>
+    </target>
+
+    <target name="phpcs-ci" unless="phpcs.done" depends="prepare" description="代码静态分析">
+        <exec executable="${phpcs}" output="/dev/null" taskname="phpcs">
+            <arg value="--report=checkstyle"/>
+            <arg value="--report-file=${basedir}/build/logs/checkstyle.xml"/>
+            <arg value="--standard=PSR2"/>
+            <arg value="--extensions=php"/>
+            <arg value="--ignore=${basedir}/vendor"/>
+            <arg path="${basedir}"/>
+        </exec>
+
+        <property name="phpcs.done" value="true"/>
+    </target>
+
+    <target name="phpcpd-ci" unless="phpcpd.done" depends="prepare" description="找到重复的代码">
+        <exec executable="${phpcpd}" taskname="phpcpd">
+            <arg value="--log-pmd"/>
+            <arg path="${basedir}/build/logs/pmd-cpd.xml"/>
+            <arg value="--exclude=vendor"/>
+            <arg path="${basedir}"/>
+        </exec>
+
+        <property name="phpcpd.done" value="true"/>
+    </target>
+
+    <target name="codecept" unless="codecept.done" depends="prepare" description="单元测试">
+        <exec executable="${codecept}" resultproperty="result.codecept" taskname="codecept">
+            <arg value="run"/>
+            <arg value="-c"/>
+            <arg path="${basedir}/codeception.yml"/>
+            <arg value="--xml"/>
+        </exec>
+
+        <property name="codecept.done" value="true"/>
+    </target>
+
+    <target name="phpdox" unless="phpdox.done" depends="phploc-ci,phpcs-ci,phpmd-ci" description="使用PHPdox生成项目文档">
+        <exec executable="${phpdox}" dir="${basedir}/build" taskname="phpdox"/>
+        <property name="phpdox.done" value="true"/>
+    </target>
+
+    <target name="-check-failure">
+        <fail message="单元测试运行失败">
+            <condition>
+                <not>
+                    <equals arg1="${result.codecept}" arg2="0"/>
+                </not>
+            </condition>
+        </fail>
+    </target>
+</project>
