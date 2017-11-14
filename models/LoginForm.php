@@ -3,6 +3,7 @@
 namespace app\models;
 
 use Yii;
+use yii\base\InvalidConfigException;
 use yii\base\Model;
 
 /**
@@ -15,6 +16,7 @@ class LoginForm extends Model
 {
     public $username;
     public $password;
+    public $verificationCode;
     public $rememberMe = true;
 
     private $_user = false;
@@ -27,12 +29,42 @@ class LoginForm extends Model
     {
         return [
             // username and password are both required
-            [['username', 'password'], 'required'],
+            [['username', 'password', 'verificationCode'], 'required'],
             // rememberMe must be a boolean value
             ['rememberMe', 'boolean'],
             // password is validated by validatePassword()
             ['password', 'validatePassword'],
+            ['verificationCode', 'string', 'min' => 6, 'max' => 7],
+            ['verificationCode', 'verificationCode'],
         ];
+    }
+
+    /**
+     * 验证用户输入的验证码
+     *
+     * @param $attribute
+     * @param $params
+     * @throws InvalidConfigException
+     */
+    public function verificationCode($attribute, $params)
+    {
+        if (!$this->hasErrors()) {
+            $captcha = Yii::$app->createController('common/captcha');
+            if ($captcha === false) {
+                throw new InvalidConfigException('Invalid CAPTCHA action ID: captcha');
+            }
+
+            /* @var $controller \yii\base\Controller */
+            list($controller, $actionID) = $captcha;
+            $action = $controller->createAction($actionID);
+            if ($action === null) {
+                throw new InvalidConfigException('Invalid CAPTCHA action ID: captcha');
+            }
+
+            if (!$action->validate($this->verificationCode, false)) {
+                $this->addError($attribute, '验证码错误。');
+            }
+        }
     }
 
     /**
@@ -88,6 +120,7 @@ class LoginForm extends Model
             'username' => '用户名',
             'password' => '密码',
             'rememberMe' => '记住我',
+            'verificationCode' => '验证码',
         ];
     }
 }

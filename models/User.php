@@ -2,7 +2,7 @@
 
 namespace app\models;
 
-use yii;
+use Yii;
 use yii\base\Object;
 use yii\web\IdentityInterface;
 
@@ -18,23 +18,20 @@ class User extends Object implements IdentityInterface
     public $authKey;
     public $accessToken;
 
-    private static $users = [
-        '100' => [
-            'id' => '100',
-            'username' => 'admin',
-            'password' => '$2y$13$Wy6r2ktoB5ylDLiTjWrxlugEtPhVSYxDimxRufWbL5N3CotNGJ9da',
-            'authKey' => 'rxlugEtPhVSYxDimx',
-            'accessToken' => 'bL5N3CotNGJ9d',
-        ]
-    ];
-
+    /**
+     * @return mixed 从配置文件中读取用户信息
+     */
+    private static function users()
+    {
+        return Yii::$app->params['manageAccounts'];
+    }
 
     /**
      * @inheritdoc
      */
     public static function findIdentity($id)
     {
-        return isset(self::$users[$id]) ? new static(self::$users[$id]) : null;
+        return isset(self::users()[$id]) ? new static(self::users()[$id]) : null;
     }
 
     /**
@@ -42,7 +39,7 @@ class User extends Object implements IdentityInterface
      */
     public static function findIdentityByAccessToken($token, $type = null)
     {
-        foreach (self::$users as $user) {
+        foreach (self::users() as $user) {
             if ($user['accessToken'] === $token) {
                 return new static($user);
             }
@@ -59,7 +56,7 @@ class User extends Object implements IdentityInterface
      */
     public static function findByUsername($username)
     {
-        foreach (self::$users as $user) {
+        foreach (self::users() as $user) {
             if (strcasecmp($user['username'], $username) === 0) {
                 return new static($user);
             }
