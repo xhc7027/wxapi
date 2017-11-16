@@ -47,14 +47,9 @@ $this->params['breadcrumbs'][] = $this->title;
 
                 <?= $form->field($model, 'password')->passwordInput() ?>
 
-                <div class="form-group">
-                    <label class="col-lg-1 control-label"></label>
-                    <div class="col-lg-3">
-                        <img id="loginform-verificationcode-image" src="/common/captcha" alt="验证码">
-                    </div>
-                </div>
-
-                <?= $form->field($model, 'verificationCode')->textInput() ?>
+                <?= $form->field($model, 'captcha')->widget(\yii\captcha\Captcha::classname(), [
+                        'captchaAction' => 'common/captcha'
+                ]) ?>
 
                 <?= $form->field($model, 'rememberMe')->checkbox([
                     'template' => "<div class=\"col-lg-offset-1 col-lg-3\">{input} {label}</div>\n<div class=\"col-lg-8\">{error}</div>",
@@ -71,15 +66,6 @@ $this->params['breadcrumbs'][] = $this->title;
             </div>
         </div>
     </div>
-
-    <script>
-        $(function () {
-            $('#loginform-verificationcode-image').click(function () {
-                var o = $(this);
-                o.attr('src', '/common/captcha?v=' + new Date().getMilliseconds());
-            }).trigger('click');
-        });
-    </script>
 
     <footer class="footer">
         <div class="container">
