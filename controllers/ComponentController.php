@@ -43,7 +43,7 @@ class ComponentController extends Controller
         return [
             'monitor' => [
                 'class' => MonitorBehavior::className(),
-                'actions' => ['component-login-redirect', 'redirect', 'redirect-for-fx'],
+                'actions' => ['component-login-redirect', 'redirect', 'redirect-for-fx','component-login-redirect-py'],
             ]
         ];
     }
@@ -304,6 +304,43 @@ class ComponentController extends Controller
         } else {
             return true;
         }
+    }
+
+    /**
+     * 授权用户token
+     * @param $auth_code
+     * @param $expires_in
+     * @param $wxid
+     * @return bool
+     */
+
+    public function actionComponentLoginRedirectPy($auth_code, $expires_in, $wxid)
+    {
+        $appInfo = new AppInfo();
+        $appInfo->authorizationCode = $auth_code;
+        $appInfo->infoType = WeiXinService::UPDATEAUTHORIZED;
+        $appInfo->authorizationCodeExpiredTime = $expires_in + time();
+        $appInfo->twoUpdatedAt = time();
+        $respMsg = Yii::$app->weiXinService->getComponentAccessToken();
+        $componentAccessToken = $respMsg->return_msg['accessToken'];
+        $respMsg = $appInfo->getQueryAuth($componentAccessToken);
+
+        if ($respMsg->return_code == RespMsg::FAIL) {
+            Yii::error('获取公众号接口调用凭据和授权信息出错', __METHOD__);
+            return $respMsg->toJsonStr();
+        }
+
+        //保存通过接口请求到的授权信息
+        $result = $respMsg->return_msg;
+        $authorizationInfo = $result->authorization_info;
+        $model = AppInfo::findOne(strval($authorizationInfo->authorizer_appid));
+        if (!$model) {
+            $model = new AppInfo();
+            $model->appId = $authorizationInfo->authorizer_appid;
+        }
+        $model->accessToken = $authorizationInfo->authorizer_access_token;
+        $model->refreshToken = $authorizationInfo->authorizer_refresh_token;
+        return $model;
     }
 
 }
