@@ -578,12 +578,11 @@ class FacadeController extends Controller
      * 测试wxid=11721, openid = okmGDuCI5WUd31MiRddyHdRKkcwk 
      */
     public function actionSendMsg(){
-        $respMsg = new RespMsg();
+        $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         $wxId = Yii::$app->request->post('wxid');
         $msgType = Yii::$app->request->post('msgType');
         $openId = Yii::$app->request->post('toUser');
         if(!$wxId){
-            $respMsg->return_code = RespMsg::FAIL;
             $respMsg->return_msg = 'wxid不能为空'; 
             return $respMsg;
         }
@@ -591,38 +590,29 @@ class FacadeController extends Controller
             'touser'    => $openId,
             'msgtype'   => $msgType       
         ];
+        //获取商家的token
         $tmpRespMsg = $this->getWxidToken($wxId);
         if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
             $accessToken = $tmpRespMsg->return_msg['accessToken'];
-            $message = Yii::$app->request->post($msgType);        
+            $message = Yii::$app->request->post($msgType); 
+            //post动态数据转化成客服消息
             $messageContent = $this->getIdouziMessage($msgType, $message, $accessToken) ?? null;
             if(!$messageContent){
-                $respMsg->return_code = RespMsg::FAIL;
-                $respMsg->return_msg = 'fail: 不支持的格式';   
+                $respMsg->return_msg = 'fail: 不支持的格式';  
+                return $respMsg;
+            }
+            $sendData[$msgType] = $messageContent;                
+            $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/message/custom/send';
+            $resp = HttpUtil::post($url, 
+                'access_token=' . $accessToken, 
+                json_encode($sendData, JSON_UNESCAPED_UNICODE)
+            ); 
+            if($resp->return_code === RespMsg::SUCCESS){
+                $respMsg->return_msg = $resp->return_msg;   
             }else{
-                $sendData[$msgType] = $messageContent;                
-                $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/message/custom/send';
-                $resp = HttpUtil::post($url, 
-                    'access_token=' . $accessToken, 
-                    json_encode($sendData, JSON_UNESCAPED_UNICODE)
-                ); 
-                if($resp->return_code === RespMsg::SUCCESS){
-                    $respMsg->return_msg = $resp->return_msg;   
-                }else{
-                    $respMsg->return_code = RespMsg::FAIL;
-                    switch($resp->return_msg->errcode){
-                        case '45047':
-                            $respMsg->return_msg = '客服接口下行条数超过上限'; 
-                            break;
-                        case '45015':
-                            $respMsg->return_msg = '回复时间超过限制';    
-                            break;
-                        default:
-                            $respMsg->return_msg = '发送消息失败,请重试';   
-                            break;
-                    } 
-                }
-            }                
+                //微信返回码文字说明
+                $respMsg->return_msg = $this->getWxErrorMsg($resp->return_msg->errcode, '发送消息失败,请重试');
+            }                           
         } else {
             $respMsg = $tmpRespMsg;
         }       
@@ -632,12 +622,12 @@ class FacadeController extends Controller
      * 根据openid获取粉丝基本信息
      */
     public function actionGetWxInfo(){
-        $respMsg = new RespMsg();
+        $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         $wxId = Yii::$app->request->get('wxid');    
         $openId = Yii::$app->request->get('openid'); 
         if($wxId){            
             $tmpRespMsg = $this->getWxidToken($wxId);
-            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+            if($tmpRespMsg->return_code === RespMsg::SUCCESS) {
                 $accessToken = $tmpRespMsg->return_msg['accessToken'];
                 $params = [
                     'access_token' => $accessToken,
@@ -648,16 +638,13 @@ class FacadeController extends Controller
                 $resp = HttpUtil::get($url, http_build_query($params));                   
                 if($resp->return_code === RespMsg::SUCCESS){
                     $respMsg->return_msg = $resp->return_msg;   
-                }else{
-                    $respMsg->return_code = RespMsg::FAIL;  
+                }else{ 
                     $respMsg->return_msg = '获取粉丝信息失败';  
                 }
-            }else{
-                $respMsg->return_code = RespMsg::FAIL;  
+            }else{  
                 $respMsg->return_msg = '获取粉丝信息失败'; 
             }            
         }else{
-            $respMsg->return_code = RespMsg::FAIL;
             $respMsg->return_msg = '获取粉丝信息失败';    
         }
         return $respMsg->toJsonStr();
@@ -668,41 +655,34 @@ class FacadeController extends Controller
      * 默认获取news图文素材
      */
     public function actionGetArticleList(){
-        $respMsg = new RespMsg();
+        $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         $wxId = Yii::$app->request->get('wxid');
         $count = Yii::$app->request->get('count', 20);
-        $offset = Yii::$app->request->get('offset', 0);
-        if($wxId){
-            $tmpRespMsg = $this->getWxidToken($wxId);
-            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
-                $accessToken = $tmpRespMsg->return_msg['accessToken'];
-                $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/material/batchget_material';
-                $resp = HttpUtil::post($url, 
-                    'access_token=' . $accessToken, 
-                    json_encode(['count' => $count, 'offset' => $offset, 'type'=>'news'])
-                ); 
-                if($resp->return_code === RespMsg::SUCCESS){
-                    $respMsgList = $resp->return_msg;
-                    /***去除图文里面的content内容 start***/
-                    foreach($respMsgList->item as &$v){
-                        foreach($v->content->news_item as &$val){
-                            unset($val->content);    
-                        }
+        $offset = Yii::$app->request->get('offset', 0);        
+        $tmpRespMsg = $this->getWxidToken($wxId);
+        if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+            $accessToken = $tmpRespMsg->return_msg['accessToken'];
+            $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/material/batchget_material';
+            $resp = HttpUtil::post($url, 
+                'access_token=' . $accessToken, 
+                json_encode(['count' => $count, 'offset' => $offset, 'type'=>'news'])
+            ); 
+            if($resp->return_code === RespMsg::SUCCESS){
+                $respMsgList = $resp->return_msg;
+                /***去除图文里面的content内容 start***/
+                foreach($respMsgList->item as &$v){
+                    foreach($v->content->news_item as &$val){
+                        unset($val->content);    
                     }
-                    /***去除图文里面的content内容 end***/
-                    $respMsg->return_msg = $respMsgList;   
-                }else{
-                    $respMsg->return_code = RespMsg::FAIL;  
-                    $respMsg->return_msg = '获取图文列表失败';    
                 }
-            } else {
-                $respMsg->return_code = RespMsg::FAIL;  
-                $respMsg->return_msg = '获取图文列表失败'; 
-            } 
-        }else{
-            $respMsg->return_code = RespMsg::FAIL;
-            $respMsg->return_msg = '获取图文列表失败';    
-        }
+                /***去除图文里面的content内容 end***/
+                $respMsg->return_msg = $respMsgList;   
+            }else{ 
+                $respMsg->return_msg = '获取图文列表失败';    
+            }
+        } else {  
+            $respMsg->return_msg = '获取图文列表失败'; 
+        } 
         return $respMsg->toJsonStr();
     }
     /**
@@ -739,7 +719,7 @@ class FacadeController extends Controller
      * 
      */
     public function actionGetWxBindIdouzi(){ 
-        $wxId = Yii::$app->request->get('wxid', '11721');
+        $wxId = Yii::$app->request->get('wxid');
         $resp = $this->getIdouziApi([
             'act'   => 46,
             'wxid'  => $wxId,
@@ -759,6 +739,24 @@ class FacadeController extends Controller
         return $respMsg;
     }
     /**
+     * 微信返回错误发解析
+     *
+     */
+    private function getWxErrorMsg($errCode, $msg = ''){
+        switch($errCode){
+            case '45047':
+                $errorMsg = '客服接口下行条数超过上限'; 
+                break;
+            case '45015':
+                $errorMsg = '回复时间超过限制';    
+                break;
+            default:
+                $errorMsg = $msg;
+                break;
+        }
+        return $errorMsg;
+    }
+    /**
      *  根据商家id获取微信token
      *  @param number $wxId 商家id
      *  @return object 
@@ -767,12 +765,7 @@ class FacadeController extends Controller
         $appInfo = AppInfo::find()->select(['appId', 'wxId', 'refreshToken', 'accessToken', 'infoType', 'zeroUpdatedAt', 'authorizationCode', 'authorizationCodeExpiredTime'])->where(['wxId' => $wxId])->one();
         $respMsg = new RespMsg();
         if($appInfo){
-            $tmpRespMsg = $this->getAccessToken($appInfo);
-            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
-                $respMsg->return_msg = $tmpRespMsg->return_msg;
-            }else{
-                $respMsg = $tmpRespMsg;    
-            }
+            $respMsg = $this->getAccessToken($appInfo);
         }else{
             $respMsg->return_code = RespMsg::FAIL;
             $respMsg->return_msg = '未找到公众号信息';

@@ -40,7 +40,6 @@ class PostAccessFilter extends Behavior
      */
     public function beforeAction($event)
     {   
-        //Yii::error(json_encode(Yii::$app->request->post()), __METHOD__);
         $actionId = $event->action->id;
         if (in_array($actionId, $this->actions)) {
             try {
