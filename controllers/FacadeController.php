@@ -16,6 +16,8 @@ use app\services\WeiXinService;
 use Yii;
 use yii\filters\VerbFilter;
 use yii\web\Controller;
+use Curl\Curl;
+use app\commons\FileUtil;
 
 /**
  * 面向内部调用的高层外观接口
@@ -52,11 +54,15 @@ class FacadeController extends Controller
             ],
             'access' => [
                 'class' => SupplierAccessFilter::className(),
-                'actions' => ['bind-page', 'openid', 'web-page', 'app-info-clear-quota', 'get-accesstoken', 'get-supplier-nick-name']
+                'actions' => ['bind-page', 'openid', 'web-page', 'app-info-clear-quota', 'get-accesstoken', 'get-supplier-nick-name', ' get-article-list', 'get-wx-info', 'get-app-info', 'get-media-info']
             ],
             'apiAccess' => [
                 'class' => 'app\behaviors\ApiAccessFilter',
                 'actions' => ['material-add-material'],
+            ],
+            'postAccess' => [
+                'class' => 'app\behaviors\PostAccessFilter',
+                'actions'   => ['send-msg']
             ],
         ];
     }
@@ -183,7 +189,6 @@ class FacadeController extends Controller
     private function getAccessToken($appInfo)
     {
         $respMsg = new RespMsg();
-
         if ($appInfo) {
             if (WeiXinService::UNAUTHORIZED != $appInfo->infoType) {//检测公众号授权状态
                 $tmpRespMsg = Yii::$app->weiXinService->getAppAccessToken($appInfo);
@@ -565,4 +570,393 @@ class FacadeController extends Controller
 
         return $respMsg;
     }
+    
+    /****************工作通-idouzi客服回复消息 start*******************/
+
+    /**
+     * 客服回复粉丝信息 //https://api.weixin.qq.com/cgi-bin/message/custom/send?access_token=ACCESS_TOKEN
+     * 测试wxid=11721, openid = okmGDuCI5WUd31MiRddyHdRKkcwk 
+     */
+    public function actionSendMsg(){
+        $respMsg = new RespMsg();
+        $wxId = Yii::$app->request->post('wxid', '11721');
+        $msgType = Yii::$app->request->post('msgType', 'image');
+        $openId = Yii::$app->request->post('toUser', 'okmGDuCI5WUd31MiRddyHdRKkcwk');
+        if(!$wxId){
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = 'wxid不能为空'; 
+            return $respMsg;
+        }
+        $sendData = [
+            'touser'    => $openId,
+            'msgtype'   => $msgType       
+        ];
+        /************测试数据 start********************/
+        $testData = [
+            'text'  => ['content' => '大家好, 我是工作通客服!'],
+            'image' => 'http://testwebimg-10006892.image.myqcloud.com/397c6367-ed6b-4cd8-bf8f-ac82c29f693d',
+            'voice' => 'http://testweb-10006892.file.myqcloud.com/weichatsubscription/b8ad3ef71bf03a67ae6c0ebee6e5b245.amr',
+            'mpnews' => ['media_id' => 'CJ1nAQKR8jSZbrcrUcX_6jKVfH3AxPq59FD5NqhrRQc']
+        ];        
+        /************测试数据 end********************/
+        $tmpRespMsg = $this->getWxidToken($wxId);
+        if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+            $accessToken = $tmpRespMsg->return_msg['accessToken'];
+            $message = Yii::$app->request->post($msgType, $testData[$msgType]);
+            Yii::warning('图文数据url:' . $message, __METHOD__);         
+            $messageContent = $this->getIdouziMessage($msgType, $message, $accessToken) ?? null;
+            if(!$messageContent){
+                $respMsg->return_code = RespMsg::FAIL;
+                $respMsg->return_msg = 'fail: 不支持的格式';   
+            }else{
+                $sendData[$msgType] = $messageContent;                
+                $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/message/custom/send';
+                Yii::warning('图文数据' . json_encode($sendData, JSON_UNESCAPED_UNICODE), __METHOD__);
+                $resp = HttpUtil::post($url, 
+                    'access_token=' . $accessToken, 
+                    json_encode($sendData, JSON_UNESCAPED_UNICODE)
+                ); 
+                if($resp->return_code === RespMsg::SUCCESS){
+                    $respMsg->return_msg = $resp->return_msg;   
+                }else{//45015
+                    $respMsg->return_code = RespMsg::FAIL;
+                    switch($resp->return_msg->errcode){
+                        case '45047':
+                            $respMsg->return_msg = '客服接口下行条数超过上限'; 
+                            break;
+                        case '45015':
+                            $respMsg->return_msg = '回复时间超过限制';    
+                            break;
+                        default:
+                            $respMsg->return_msg = '发送消息失败,请重试';   
+                            break;
+                    }
+                    //$respMsg = $resp;  
+                }
+            }                
+        } else {
+            $respMsg = $tmpRespMsg;
+        }       
+        return $respMsg;
+    }
+    /**
+     * 根据openid获取粉丝基本信息
+     */
+    public function actionGetWxInfo(){
+        $respMsg = new RespMsg();
+        $wxId = Yii::$app->request->get('wxid', '');    
+        $openId = Yii::$app->request->get('openid', 'okmGDuCI5WUd31MiRddyHdRKkcwk'); 
+        if($wxId){            
+            $tmpRespMsg = $this->getWxidToken($wxId);
+            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+                $accessToken = $tmpRespMsg->return_msg['accessToken'];
+                $params = [
+                    'access_token' => $accessToken,
+                    'openid' => $openId,
+                    'lang' => 'zh_CN',
+                ];
+                $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/user/info';
+                $resp = HttpUtil::get($url, http_build_query($params));                   
+                if($resp->return_code === RespMsg::SUCCESS){
+                    $respMsg->return_msg = $resp->return_msg;   
+                }else{
+                    $respMsg = $resp;    
+                }
+            }else{
+                $respMsg = $tmpRespMsg;  
+            }            
+        }else{
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = 'wxid不能为空';    
+        }
+        return $respMsg->toJsonStr();
+    }
+    /*
+     * 根据wxid获取公众号的图文列表 get-article-list
+     * 测试appid wx07618f660579cf07
+     * 默认获取news图文素材
+     */
+    public function actionGetArticleList(){
+        $respMsg = new RespMsg();
+        $wxId = Yii::$app->request->get('wxid', '');
+        $count = Yii::$app->request->get('count', 20);
+        $offset = Yii::$app->request->get('offset', 0);
+        if($wxId){
+            $tmpRespMsg = $this->getWxidToken($wxId);
+            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+                $accessToken = $tmpRespMsg->return_msg['accessToken'];
+                $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/material/batchget_material';
+                $resp = HttpUtil::post($url, 
+                    'access_token=' . $accessToken, 
+                    json_encode(['count' => $count, 'offset' => $offset, 'type'=>'news'])
+                ); 
+                if($resp->return_code === RespMsg::SUCCESS){
+                    $respMsgList = $resp->return_msg;
+                    /***去除图文里面的content内容 start***/
+                    foreach($respMsgList->item as &$v){
+                        foreach($v->content->news_item as &$val){
+                            unset($val->content);    
+                        }
+                    }
+                    /***去除图文里面的content内容 end***/
+                    $respMsg->return_msg = $respMsgList;   
+                }else{
+                    $respMsg = $resp;    
+                }
+            } else {
+                $respMsg = $tmpRespMsg;
+            } 
+        }else{
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = 'wxid不能为空';    
+        }
+        return $respMsg->toJsonStr();
+    }
+
+
+    
+    //get-media-info  mediaId: m3BoH9PFa8DDAlvOTNf85OpX6j57tZKWFhLpB7z4ScayQs2URRDirVocWQ_i34rz
+    //g1gXt1JdrV50XGNWJ3Avl6WN1qzb860UUwHJS3R1qZa3cScKaSpM__ihmUWKDyCm
+    public function actionGetMediaInfo(){
+        $respMsg = new RespMsg();
+        $wxId = Yii::$app->request->get('wxid', '11721');
+        $mediaId = Yii::$app->request->get('mediaid', 'HIeYC7-ar7qOkAgv9CesPeSOpBu4gLl6Vk-bieF04N_FcKgwisbn8bJ_ns6hQzs-');
+        $fileSuffixName = Yii::$app->request->get('suffix', 'png');       
+        $tmpRespMsg = $this->getWxidToken($wxId);
+        if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+            $accessToken = $tmpRespMsg->return_msg['accessToken'];
+            $params = [
+                'access_token' => $accessToken,
+                'media_id' => $mediaId,
+            ];
+            $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/media/get?' . http_build_query($params);
+            $filePath = HttpUtil::downloadRemoteFile($url, '.' . $fileSuffixName);
+            $cosPath = $this->upFile($filePath, $fileSuffixName);
+            if($cosPath){
+                $respMsg->return_msg = $cosPath;   
+            }else{
+                $respMsg->return_code = RespMsg::FAIL;
+                $respMsg->return_msg = '素材获取失败'; 
+            }                
+        } else {
+            $respMsg = $tmpRespMsg;
+        }        
+        return $respMsg->toJsonStr();
+    }
+    /**
+     * 获取idouzi绑定工作通的账号
+     * 
+     */
+    public function actionGetWxBindIdouzi(){ 
+        $wxId = Yii::$app->request->get('wxid', '11721');
+        $resp = $this->getIdouziApi([
+            'act'   => 46,
+            'wxid'  => $wxId,
+            'page_size' => 10
+        ]);
+        $respMsg = new RespMsg();
+        if(!$resp){
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '获取失败';
+        }
+        if($resp['is_ok'] == 1){
+            $respMsg->return_msg = $resp['data']['serv_data'];
+        }else{
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = $resp['info'];  
+        }
+        return $respMsg;
+    }
+    //根据商家id获取微信token
+    private function getWxidToken($wxId){
+        $appInfo = AppInfo::find()->select(['appId', 'wxId', 'refreshToken', 'accessToken', 'infoType', 'zeroUpdatedAt', 'authorizationCode', 'authorizationCodeExpiredTime'])->where(['wxId' => $wxId])->one();
+        $respMsg = new RespMsg();
+        if($appInfo){
+            $tmpRespMsg = $this->getAccessToken($appInfo);
+            if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
+                $respMsg->return_msg = $tmpRespMsg->return_msg;
+            }else{
+                $respMsg = $tmpRespMsg;    
+            }
+        }else{
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '未找到公众号信息';
+        }
+        return $respMsg;
+    }
+    private function getIdouziMessage($msgType, $data, $accessToken){
+        //Yii::warning('工作通发送数据::>>' . gettype($data), __METHOD__);        
+        if(in_array($msgType, ['text', 'mpnews'])){ 
+            if(gettype($data) == 'string'){
+                $data = json_decode($data, true);
+            }
+            return $data;
+        }
+        if(in_array($msgType, ['image', 'voice'])){
+            $cosPath = str_replace('\\', '', $data); 
+            if($msgType == 'image'){
+                $Suffix = '.png';   
+            }else{
+                $Suffix =  '.' . pathinfo($cosPath, PATHINFO_EXTENSION); 
+                $cosConfig = $this->getCosConfig(); 
+                if(!$cosConfig){
+                    return null;
+                }
+                $cosPath .= '?sign=' . $cosConfig['sign']; 
+            }
+            //Yii::warning('cos地址:' . $cosPath, __METHOD__);
+            $filePath = HttpUtil::downloadRemoteFile($cosPath, $Suffix);
+            try {
+                $response = HttpUtil::weiChatFormUpload(
+                    Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/media/upload?'
+                    . 'access_token=' . $accessToken . '&type=' . $msgType,
+                    [
+                        'media' => new \CURLFile(realpath($filePath)),
+                    ]
+                );
+                return ['media_id' => $response['media_id']];
+            } catch (\Exception $e) {
+                throw new SystemException($e->getMessage());
+            } finally {
+                //不管如何都将删除文件，以控制本地临时文件容量。
+                FileUtil::deleteFileByAbsolutePath($filePath);
+            }
+        }
+        return null;
+    }
+    /**
+     *  腾讯云上传文件和图片到工作通
+     */
+    private function upFile($filePath, $type = 'png'){
+        $cosConfig = $this->getCosConfig($type == 'png' ? 'img' : 'file');   
+        if(!$cosConfig || !$filePath){
+            return null;
+        }
+        try {
+            $url = $type != 'png' ? $cosConfig['url'] . urlencode(md5_file($filePath) . '.' . $type) : $cosConfig['url'];
+            $fileContent = $type != 'png' ? 'fileContent' : 'FileContent';
+            if (function_exists('curl_file_create')) {
+                $data[$fileContent] = curl_file_create(realpath($filePath));
+            } else {
+                $data[$fileContent] = '@'.realpath($filePath);
+            }
+            if($type != 'png'){
+                $data['op'] = 'upload';
+                $data['insertOnly'] = 1;
+            }
+            $req = [
+                'url' => 'https:' . $url,
+                'method' => 'post',
+                'timeout' => 10,
+                'data' => $data,
+                'header' => [
+                    'Authorization:QCloud '.$cosConfig['sign'],
+                ]
+            ];
+            $response = $this->cosSend($req);
+            $returnCode = json_decode($response, true);
+            if($returnCode['code'] == 0){
+                $return_msg['cosPath'] = $returnCode['data']['access_url'] ?? $returnCode['data']['download_url'];
+                $return_msg['size'] = filesize($filePath);
+                if($type == 'png'){
+                    $return_msg['info'] =  $returnCode['data']['info'][0][0];
+                }
+                return $return_msg;
+            }
+        } catch (\Exception $e) {
+            throw new SystemException($e->getMessage());
+        } finally {
+            FileUtil::deleteFileByAbsolutePath($filePath);
+        }
+        return null;
+    }
+    /**
+     * 调用工作通接口
+     * 配置url  idouzi-api-dev.jobchat .cn
+     */
+    private function getIdouziApi($data = null){
+        if(!$data){
+            return null;
+        }
+        $url = Yii::$app->params['jobchatApiUrl'] . '?';
+        $curl = new Curl();
+        $curl->get($url . http_build_query($data));
+        $curl->close();
+        if ($curl->error) {
+            return null;
+        }
+        $resp = base64_decode($curl->response);
+        try{
+            $resp = json_decode($resp, true);
+        }catch(\Exception $e){
+            throw new SystemException($e->getMessage());
+        }
+        return $resp;
+    }
+    /**
+     * 获取工作通cos签名
+     */
+    private function getCosConfig($type = 'file'){
+        $resp = $this->getIdouziApi([
+            'act' => 47,
+            'cos_img' => $type == 'file' ? '' : 'on'
+        ]);
+        if($resp['is_ok'] == 1){
+            $pcUrl = $type == 'file' ? 'cos_files_pc_url' : 'cos_images_pc_url';
+            return [
+                'sign'  => $resp['data']['serv_data']['cos_sign'],
+                'url'   => $resp['data']['serv_data'][$pcUrl]
+            ];   
+        }
+        return null;
+    }
+    
+    private function cosSend($rq) {     
+        $ci = curl_init();        
+        curl_setopt($ci, CURLOPT_URL, $rq['url']);
+        switch (true) {
+            case isset($rq['method']) && in_array(strtolower($rq['method']), array('get', 'post', 'put', 'delete', 'head')):
+                $method = strtoupper($rq['method']);
+                break;
+            case isset($rq['data']):
+                $method = 'POST';
+                break;
+            default:
+                $method = 'GET';
+        }
+        $header = isset($rq['header']) ? $rq['header'] : array();
+        $header[] = 'Method:'.$method;
+        $header[] = 'User-Agent:QcloudPHP/2.0.1 ('.php_uname().')';
+        isset($rq['host']) && $header[] = 'Host:'.$rq['host'];  
+        curl_setopt($ci, CURLOPT_HTTPHEADER, $header);
+        curl_setopt($ci, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ci, CURLOPT_CUSTOMREQUEST, $method);
+        isset($rq['timeout']) && curl_setopt($ci, CURLOPT_TIMEOUT, $rq['timeout']);
+        isset($rq['data']) && in_array($method, array('POST', 'PUT')) && curl_setopt($ci, CURLOPT_POSTFIELDS, $rq['data']);
+        $ssl = substr($rq['url'], 0, 8) == "https://" ? true : false;
+        if( isset($rq['cert'])){
+            curl_setopt($ci, CURLOPT_SSL_VERIFYPEER,true);
+            curl_setopt($ci, CURLOPT_CAINFO, $rq['cert']);
+            curl_setopt($ci, CURLOPT_SSL_VERIFYHOST,2);
+            if (isset($rq['ssl_version'])) {
+                curl_setopt($ci, CURLOPT_SSLVERSION, $rq['ssl_version']);
+            } else {
+                curl_setopt($ci, CURLOPT_SSLVERSION, 4);
+            }
+        }else if( $ssl ){
+            curl_setopt($ci, CURLOPT_SSL_VERIFYPEER,false);   //true any ca
+            curl_setopt($ci, CURLOPT_SSL_VERIFYHOST,2);       //check only host
+            if (isset($rq['ssl_version'])) {
+                curl_setopt($ci, CURLOPT_SSLVERSION, $rq['ssl_version']);
+            } else {
+                curl_setopt($ci, CURLOPT_SSLVERSION, 4);
+            }
+        }
+        $ret = curl_exec($ci);
+        //self::$_httpInfo = curl_getinfo($ci);
+        curl_close($ci);
+        return $ret;
+    }
+
+     /****************工作通-idouzi客服回复消息 end*******************/
 }
