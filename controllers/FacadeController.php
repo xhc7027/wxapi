@@ -608,6 +608,7 @@ class FacadeController extends Controller
                 json_encode($sendData, JSON_UNESCAPED_UNICODE)
             ); 
             if($resp->return_code === RespMsg::SUCCESS){
+                $respMsg->return_code = RespMsg::SUCCESS; 
                 $respMsg->return_msg = $resp->return_msg;   
             }else{
                 //微信返回码文字说明
@@ -637,6 +638,7 @@ class FacadeController extends Controller
                 $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/user/info';
                 $resp = HttpUtil::get($url, http_build_query($params));                   
                 if($resp->return_code === RespMsg::SUCCESS){
+                    $respMsg->return_code = RespMsg::SUCCESS;   
                     $respMsg->return_msg = $resp->return_msg;   
                 }else{ 
                     $respMsg->return_msg = '获取粉丝信息失败';  
@@ -676,6 +678,7 @@ class FacadeController extends Controller
                     }
                 }
                 /***去除图文里面的content内容 end***/
+                $respMsg->return_code = RespMsg::SUCCESS; 
                 $respMsg->return_msg = $respMsgList;   
             }else{ 
                 $respMsg->return_msg = '获取图文列表失败';    
