@@ -579,9 +579,9 @@ class FacadeController extends Controller
      */
     public function actionSendMsg(){
         $respMsg = new RespMsg();
-        $wxId = Yii::$app->request->post('wxid', '11721');
-        $msgType = Yii::$app->request->post('msgType', 'image');
-        $openId = Yii::$app->request->post('toUser', 'okmGDuCI5WUd31MiRddyHdRKkcwk');
+        $wxId = Yii::$app->request->post('wxid');
+        $msgType = Yii::$app->request->post('msgType');
+        $openId = Yii::$app->request->post('toUser');
         if(!$wxId){
             $respMsg->return_code = RespMsg::FAIL;
             $respMsg->return_msg = 'wxid不能为空'; 
@@ -591,19 +591,10 @@ class FacadeController extends Controller
             'touser'    => $openId,
             'msgtype'   => $msgType       
         ];
-        /************测试数据 start********************/
-        $testData = [
-            'text'  => ['content' => '大家好, 我是工作通客服!'],
-            'image' => 'http://testwebimg-10006892.image.myqcloud.com/397c6367-ed6b-4cd8-bf8f-ac82c29f693d',
-            'voice' => 'http://testweb-10006892.file.myqcloud.com/weichatsubscription/b8ad3ef71bf03a67ae6c0ebee6e5b245.amr',
-            'mpnews' => ['media_id' => 'CJ1nAQKR8jSZbrcrUcX_6jKVfH3AxPq59FD5NqhrRQc']
-        ];        
-        /************测试数据 end********************/
         $tmpRespMsg = $this->getWxidToken($wxId);
         if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
             $accessToken = $tmpRespMsg->return_msg['accessToken'];
-            $message = Yii::$app->request->post($msgType, $testData[$msgType]);
-            Yii::warning('图文数据url:' . $message, __METHOD__);         
+            $message = Yii::$app->request->post($msgType);        
             $messageContent = $this->getIdouziMessage($msgType, $message, $accessToken) ?? null;
             if(!$messageContent){
                 $respMsg->return_code = RespMsg::FAIL;
@@ -611,14 +602,13 @@ class FacadeController extends Controller
             }else{
                 $sendData[$msgType] = $messageContent;                
                 $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/message/custom/send';
-                Yii::warning('图文数据' . json_encode($sendData, JSON_UNESCAPED_UNICODE), __METHOD__);
                 $resp = HttpUtil::post($url, 
                     'access_token=' . $accessToken, 
                     json_encode($sendData, JSON_UNESCAPED_UNICODE)
                 ); 
                 if($resp->return_code === RespMsg::SUCCESS){
                     $respMsg->return_msg = $resp->return_msg;   
-                }else{//45015
+                }else{
                     $respMsg->return_code = RespMsg::FAIL;
                     switch($resp->return_msg->errcode){
                         case '45047':
@@ -630,8 +620,7 @@ class FacadeController extends Controller
                         default:
                             $respMsg->return_msg = '发送消息失败,请重试';   
                             break;
-                    }
-                    //$respMsg = $resp;  
+                    } 
                 }
             }                
         } else {
@@ -644,8 +633,8 @@ class FacadeController extends Controller
      */
     public function actionGetWxInfo(){
         $respMsg = new RespMsg();
-        $wxId = Yii::$app->request->get('wxid', '');    
-        $openId = Yii::$app->request->get('openid', 'okmGDuCI5WUd31MiRddyHdRKkcwk'); 
+        $wxId = Yii::$app->request->get('wxid');    
+        $openId = Yii::$app->request->get('openid'); 
         if($wxId){            
             $tmpRespMsg = $this->getWxidToken($wxId);
             if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
@@ -660,14 +649,16 @@ class FacadeController extends Controller
                 if($resp->return_code === RespMsg::SUCCESS){
                     $respMsg->return_msg = $resp->return_msg;   
                 }else{
-                    $respMsg = $resp;    
+                    $respMsg->return_code = RespMsg::FAIL;  
+                    $respMsg->return_msg = '获取粉丝信息失败';  
                 }
             }else{
-                $respMsg = $tmpRespMsg;  
+                $respMsg->return_code = RespMsg::FAIL;  
+                $respMsg->return_msg = '获取粉丝信息失败'; 
             }            
         }else{
             $respMsg->return_code = RespMsg::FAIL;
-            $respMsg->return_msg = 'wxid不能为空';    
+            $respMsg->return_msg = '获取粉丝信息失败';    
         }
         return $respMsg->toJsonStr();
     }
@@ -678,7 +669,7 @@ class FacadeController extends Controller
      */
     public function actionGetArticleList(){
         $respMsg = new RespMsg();
-        $wxId = Yii::$app->request->get('wxid', '');
+        $wxId = Yii::$app->request->get('wxid');
         $count = Yii::$app->request->get('count', 20);
         $offset = Yii::$app->request->get('offset', 0);
         if($wxId){
@@ -701,26 +692,26 @@ class FacadeController extends Controller
                     /***去除图文里面的content内容 end***/
                     $respMsg->return_msg = $respMsgList;   
                 }else{
-                    $respMsg = $resp;    
+                    $respMsg->return_code = RespMsg::FAIL;  
+                    $respMsg->return_msg = '获取图文列表失败';    
                 }
             } else {
-                $respMsg = $tmpRespMsg;
+                $respMsg->return_code = RespMsg::FAIL;  
+                $respMsg->return_msg = '获取图文列表失败'; 
             } 
         }else{
             $respMsg->return_code = RespMsg::FAIL;
-            $respMsg->return_msg = 'wxid不能为空';    
+            $respMsg->return_msg = '获取图文列表失败';    
         }
         return $respMsg->toJsonStr();
     }
-
-
-    
-    //get-media-info  mediaId: m3BoH9PFa8DDAlvOTNf85OpX6j57tZKWFhLpB7z4ScayQs2URRDirVocWQ_i34rz
-    //g1gXt1JdrV50XGNWJ3Avl6WN1qzb860UUwHJS3R1qZa3cScKaSpM__ihmUWKDyCm
+    /**
+     * 通过微信素材mediaid获取素材内容上传到工作通cos
+     */
     public function actionGetMediaInfo(){
         $respMsg = new RespMsg();
-        $wxId = Yii::$app->request->get('wxid', '11721');
-        $mediaId = Yii::$app->request->get('mediaid', 'HIeYC7-ar7qOkAgv9CesPeSOpBu4gLl6Vk-bieF04N_FcKgwisbn8bJ_ns6hQzs-');
+        $wxId = Yii::$app->request->get('wxid');
+        $mediaId = Yii::$app->request->get('mediaid');
         $fileSuffixName = Yii::$app->request->get('suffix', 'png');       
         $tmpRespMsg = $this->getWxidToken($wxId);
         if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
@@ -767,7 +758,11 @@ class FacadeController extends Controller
         }
         return $respMsg;
     }
-    //根据商家id获取微信token
+    /**
+     *  根据商家id获取微信token
+     *  @param number $wxId 商家id
+     *  @return object 
+     */
     private function getWxidToken($wxId){
         $appInfo = AppInfo::find()->select(['appId', 'wxId', 'refreshToken', 'accessToken', 'infoType', 'zeroUpdatedAt', 'authorizationCode', 'authorizationCodeExpiredTime'])->where(['wxId' => $wxId])->one();
         $respMsg = new RespMsg();
@@ -784,8 +779,14 @@ class FacadeController extends Controller
         }
         return $respMsg;
     }
-    private function getIdouziMessage($msgType, $data, $accessToken){
-        //Yii::warning('工作通发送数据::>>' . gettype($data), __METHOD__);        
+    /**
+     *  客服消息发送消息动态参数获取
+     *  @param string $msgType 发送消息类型 image text mpnews voice等
+     *  @param string $data 工作通post过来的动态数据
+     *  @param string $accessToken 微信token
+     *  @return object 
+     */
+    private function getIdouziMessage($msgType, $data, $accessToken){       
         if(in_array($msgType, ['text', 'mpnews'])){ 
             if(gettype($data) == 'string'){
                 $data = json_decode($data, true);
@@ -804,7 +805,6 @@ class FacadeController extends Controller
                 }
                 $cosPath .= '?sign=' . $cosConfig['sign']; 
             }
-            //Yii::warning('cos地址:' . $cosPath, __METHOD__);
             $filePath = HttpUtil::downloadRemoteFile($cosPath, $Suffix);
             try {
                 $response = HttpUtil::weiChatFormUpload(
@@ -825,7 +825,10 @@ class FacadeController extends Controller
         return null;
     }
     /**
-     *  腾讯云上传文件和图片到工作通
+     *  腾讯云上传文件和图片到工作通 
+     *  @param string $filePath  文件的临时地址
+     *  @param string $type 文件后缀名
+     *  @return null|array 返回cos地址以及部分扩展信息
      */
     private function upFile($filePath, $type = 'png'){
         $cosConfig = $this->getCosConfig($type == 'png' ? 'img' : 'file');   
@@ -872,21 +875,22 @@ class FacadeController extends Controller
     }
     /**
      * 调用工作通接口
-     * 配置url  idouzi-api-dev.jobchat .cn
+     * @param array $data 接口参数
+     * @return array 接口返回数据
      */
     private function getIdouziApi($data = null){
         if(!$data){
             return null;
         }
         $url = Yii::$app->params['jobchatApiUrl'] . '?';
-        $curl = new Curl();
-        $curl->get($url . http_build_query($data));
-        $curl->close();
-        if ($curl->error) {
-            return null;
-        }
-        $resp = base64_decode($curl->response);
         try{
+            $curl = new Curl();
+            $curl->get($url . http_build_query($data));
+            $curl->close();
+            if ($curl->error) {
+                return null;
+            }
+            $resp = base64_decode($curl->response);
             $resp = json_decode($resp, true);
         }catch(\Exception $e){
             throw new SystemException($e->getMessage());
@@ -895,6 +899,8 @@ class FacadeController extends Controller
     }
     /**
      * 获取工作通cos签名
+     * @param string $type 签名类型 file img
+     * @return array|null  cos签名和上传地址
      */
     private function getCosConfig($type = 'file'){
         $resp = $this->getIdouziApi([
@@ -910,7 +916,11 @@ class FacadeController extends Controller
         }
         return null;
     }
-    
+    /**
+     * cos2.0 上传
+     * @param array $rq cos上传参数
+     * @return 
+     */
     private function cosSend($rq) {     
         $ci = curl_init();        
         curl_setopt($ci, CURLOPT_URL, $rq['url']);
