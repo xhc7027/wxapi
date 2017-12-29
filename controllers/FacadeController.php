@@ -732,7 +732,7 @@ class FacadeController extends Controller
         $resp = $this->getIdouziApi([
             'act'   => 46,
             'wxid'  => $wxId,
-            'page_size' => Yii::$app->params['jobchatApiUrl'] ?? 10
+            'page_size' => Yii::$app->params['jobchatApiUrl']
         ]);
         $respMsg = new RespMsg();
         if(!$resp){
