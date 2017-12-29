@@ -626,7 +626,8 @@ class FacadeController extends Controller
         $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         $wxId = Yii::$app->request->get('wxid');    
         $openId = Yii::$app->request->get('openid'); 
-        if($wxId){            
+        if($wxId){ 
+            //获取商家token
             $tmpRespMsg = $this->getWxidToken($wxId);
             if($tmpRespMsg->return_code === RespMsg::SUCCESS) {
                 $accessToken = $tmpRespMsg->return_msg['accessToken'];
@@ -660,7 +661,8 @@ class FacadeController extends Controller
         $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         $wxId = Yii::$app->request->get('wxid');
         $count = Yii::$app->request->get('count', 20);
-        $offset = Yii::$app->request->get('offset', 0);        
+        $offset = Yii::$app->request->get('offset', 0); 
+        //获取商家token
         $tmpRespMsg = $this->getWxidToken($wxId);
         if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
             $accessToken = $tmpRespMsg->return_msg['accessToken'];
@@ -695,7 +697,8 @@ class FacadeController extends Controller
         $respMsg = new RespMsg();
         $wxId = Yii::$app->request->get('wxid');
         $mediaId = Yii::$app->request->get('mediaid');
-        $fileSuffixName = Yii::$app->request->get('suffix', 'png');       
+        $fileSuffixName = Yii::$app->request->get('suffix', 'png'); 
+        //获取商家token
         $tmpRespMsg = $this->getWxidToken($wxId);
         if ($tmpRespMsg->return_code === RespMsg::SUCCESS) {
             $accessToken = $tmpRespMsg->return_msg['accessToken'];
@@ -704,7 +707,9 @@ class FacadeController extends Controller
                 'media_id' => $mediaId,
             ];
             $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/media/get?' . http_build_query($params);
+            //下载素材文件到本地临时文件
             $filePath = HttpUtil::downloadRemoteFile($url, '.' . $fileSuffixName);
+            //上传本地临时文件到工作通cos
             $cosPath = $this->upFile($filePath, $fileSuffixName);
             if($cosPath){
                 $respMsg->return_msg = $cosPath;   
@@ -723,10 +728,11 @@ class FacadeController extends Controller
      */
     public function actionGetWxBindIdouzi(){ 
         $wxId = Yii::$app->request->get('wxid');
+        //通过工作通获取绑定商家id集合
         $resp = $this->getIdouziApi([
             'act'   => 46,
             'wxid'  => $wxId,
-            'page_size' => 10
+            'page_size' => Yii::$app->params['jobchatApiUrl'] ?? 10
         ]);
         $respMsg = new RespMsg();
         if(!$resp){
@@ -795,14 +801,17 @@ class FacadeController extends Controller
                 $Suffix = '.png';   
             }else{
                 $Suffix =  '.' . pathinfo($cosPath, PATHINFO_EXTENSION); 
+                //获取工作通cos签名
                 $cosConfig = $this->getCosConfig(); 
                 if(!$cosConfig){
                     return null;
                 }
                 $cosPath .= '?sign=' . $cosConfig['sign']; 
             }
+            //下载cos文件到本地临时文件
             $filePath = HttpUtil::downloadRemoteFile($cosPath, $Suffix);
             try {
+                //上传临时输出，并返回临时素材id
                 $response = HttpUtil::weiChatFormUpload(
                     Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/media/upload?'
                     . 'access_token=' . $accessToken . '&type=' . $msgType,
@@ -832,6 +841,7 @@ class FacadeController extends Controller
             return null;
         }
         try {
+            //组合cos上传文件/图片数据
             $url = $type != 'png' ? $cosConfig['url'] . urlencode(md5_file($filePath) . '.' . $type) : $cosConfig['url'];
             $fileContent = $type != 'png' ? 'fileContent' : 'FileContent';
             if (function_exists('curl_file_create')) {
@@ -852,6 +862,7 @@ class FacadeController extends Controller
                     'Authorization:QCloud '.$cosConfig['sign'],
                 ]
             ];
+            //cos上传文件curl请求
             $response = $this->cosSend($req);
             $returnCode = json_decode($response, true);
             if($returnCode['code'] == 0){
@@ -865,6 +876,7 @@ class FacadeController extends Controller
         } catch (\Exception $e) {
             throw new SystemException($e->getMessage());
         } finally {
+            //删除临时文件
             FileUtil::deleteFileByAbsolutePath($filePath);
         }
         return null;
@@ -959,7 +971,6 @@ class FacadeController extends Controller
             }
         }
         $ret = curl_exec($ci);
-        //self::$_httpInfo = curl_getinfo($ci);
         curl_close($ci);
         return $ret;
     }
