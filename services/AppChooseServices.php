@@ -43,7 +43,7 @@ class AppChooseServices
             $this->appInfo = (new AppShareConf())->getShareInfo();
             $this->supplierIdApp = false;
         } else {
-            $this->appInfo = AppInfo::findOne([$type => $queryId, 'infoType' => 'authorized']);
+            $this->appInfo = AppInfo::findOne([$type => $queryId, 'infoType' => ['authorized', 'updateauthorized']]);
             $this->confirmApp();
         }
     }
