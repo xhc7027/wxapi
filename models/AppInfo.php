@@ -105,7 +105,7 @@ class AppInfo extends ActiveRecord
                 $respMsg->return_msg = [
                     'accessToken' => $this->accessToken,
                     'appId' => $this->appId,
-                    'expiresIn' => $expiresIn < 0 ? 1 : $expiresIn,
+                    'expiresIn' => $expiresIn < 1 ? 1 : $expiresIn,
                     'zeroUpdatedAt' => $this->zeroUpdatedAt,
                     'authorizationCode' => $this->authorizationCode,
                     'authorizationCodeExpiredTime' => $this->authorizationCodeExpiredTime,

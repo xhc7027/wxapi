@@ -49,7 +49,7 @@ class ComponentInfo extends ActiveRecord
             $respMsg->return_msg = [
                 'appId' => $this->appId,
                 'accessToken' => $this->accessToken,
-                'expiresIn' => $expiresIn < 0 ? 1 : $expiresIn,
+                'expiresIn' => $expiresIn < 1 ? 1 : $expiresIn,
                 'oneUpdatedAt' => $this->oneUpdatedAt,
             ];
             return $respMsg;
