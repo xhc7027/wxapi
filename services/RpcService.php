@@ -5,7 +5,6 @@ namespace app\services;
 use app\commons\FileUtil;
 use app\models\RespMsg;
 use Yii;
-use yii\base\Exception;
 
 /**
  * <p>这是所有RPC服务调用的入口，在里面并不真正实现某些业务，而是由具体的算法实现来完成，
