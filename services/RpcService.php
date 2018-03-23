@@ -5,6 +5,7 @@ namespace app\services;
 use app\commons\FileUtil;
 use app\models\RespMsg;
 use Yii;
+use yii\base\Exception;
 
 /**
  * <p>这是所有RPC服务调用的入口，在里面并不真正实现某些业务，而是由具体的算法实现来完成，
@@ -203,5 +204,25 @@ class RpcService
         }
 
         return $resMsg->toArray();
+    }
+
+    /**
+     * 消息推送
+     * @param array $pushData
+     * @param string $templateId
+     * @return RespMsg
+     */
+    public function msgPush(array $pushData, string $templateId)
+    {
+        $resMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
+        try{
+            $resMsg->return_msg = Yii::$app->weiXinService->pushMsg($pushData, $templateId);
+            $resMsg->return_code = RespMsg::SUCCESS;
+        }catch (\Exception $e){
+            Yii::warning('推送失败:' . $e->getMessage(), __METHOD__);
+            $resMsg->return_msg = $e->getMessage();
+        }
+
+        return $resMsg;
     }
 }
