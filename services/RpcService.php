@@ -204,4 +204,24 @@ class RpcService
 
         return $resMsg->toArray();
     }
+
+    /**
+     * 消息推送
+     * @param array $pushData
+     * @param string $templateId
+     * @return RespMsg
+     */
+    public function msgPush(array $pushData, string $templateId)
+    {
+        $resMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
+        try{
+            $resMsg->return_msg = Yii::$app->weiXinService->pushMsg($pushData, $templateId);
+            $resMsg->return_code = RespMsg::SUCCESS;
+        }catch (\Exception $e){
+            Yii::warning('推送失败:' . $e->getMessage(), __METHOD__);
+            $resMsg->return_msg = $e->getMessage();
+        }
+
+        return $resMsg;
+    }
 }
