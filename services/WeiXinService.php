@@ -913,4 +913,42 @@ class WeiXinService
 
         return $resMsg->return_msg;
     }
+
+    /**
+     * 消息推送
+     * @param array $pushData 推送的信息
+     * @param string $templateId 模板id
+     * @return mixed
+     * @throws SystemException
+     * @throws \Exception
+     */
+    public function pushMsg(array $pushData, string $templateId)
+    {
+        //先获取官方信息
+        $appInfo = AppInfo::findOne(Yii::$app->params['officialAppId']);
+        if(!$appInfo){
+            throw new SystemException('消息推送时，找不到官方公众号信息,appId:' . Yii::$app->params['officialAppId']);
+        }
+        //获取accesstoken
+        $result = $this->getAppAccessToken($appInfo);
+        //获取出错则返回异常
+        if($result->return_code === RespMsg::FAIL){
+            throw new \Exception(
+                is_string($result->return_msg) ? $result->return_msg : json_encode($result->return_msg)
+            );
+        }
+        $pushData['template_id'] = $templateId;
+        $resMsg = HttpUtil::post(
+            Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/message/template/send',
+            'access_token=' . $result->return_msg['accessToken'],
+            json_encode($pushData)
+        );
+        if($resMsg->return_code === RespMsg::FAIL){
+            throw new \Exception(
+                is_string($resMsg->return_msg) ? $resMsg->return_msg : json_encode($resMsg->return_msg)
+            );
+        }
+
+        return $resMsg->return_msg;
+    }
 }
