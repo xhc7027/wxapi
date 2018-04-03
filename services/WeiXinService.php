@@ -135,14 +135,18 @@ class WeiXinService
      */
     public function getComponentAccessToken()
     {
+        $respMsg = new RespMsg();
+
         //判断缓存中是否存在令牌
         $key = 'component_access_token_' . Yii::$app->params['wxConfig']['appId'];
         try {
-            $respMsg = json_decode(Yii::$app->cache->get($key));
-            if ($respMsg) {
-                $oneUpdatedAt = $respMsg->return_msg->oneUpdatedAt;
+            $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
+            if ($accessTokenAry) {
+                $oneUpdatedAt = $accessTokenAry['oneUpdatedAt'];
                 $expiresIn = 6600 - (time() - $oneUpdatedAt);
-                $respMsg->return_msg->expiresIn = $expiresIn;
+                $accessTokenAry['expiresIn'] = $expiresIn;
+                $respMsg->return_msg = $accessTokenAry;
+                Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
                 return $respMsg;
             }
         } catch (ErrorException $e) {
@@ -201,6 +205,7 @@ class WeiXinService
                 $expiresIn = 6600 - (time() - $accessTokenAry['zeroUpdatedAt']);
                 $accessTokenAry['expiresIn'] = $expiresIn;
                 $respMsg->return_msg = $accessTokenAry;
+                Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
                 return $respMsg;
             }
         } catch (ErrorException $e) {
@@ -926,13 +931,13 @@ class WeiXinService
     {
         //先获取官方信息
         $appInfo = AppInfo::findOne(Yii::$app->params['officialAppId']);
-        if(!$appInfo){
+        if (!$appInfo) {
             throw new SystemException('消息推送时，找不到官方公众号信息,appId:' . Yii::$app->params['officialAppId']);
         }
         //获取accesstoken
         $result = $this->getAppAccessToken($appInfo);
         //获取出错则返回异常
-        if($result->return_code === RespMsg::FAIL){
+        if ($result->return_code === RespMsg::FAIL) {
             throw new \Exception(
                 is_string($result->return_msg) ? $result->return_msg : json_encode($result->return_msg)
             );
@@ -943,7 +948,7 @@ class WeiXinService
             'access_token=' . $result->return_msg['accessToken'],
             json_encode($pushData)
         );
-        if($resMsg->return_code === RespMsg::FAIL){
+        if ($resMsg->return_code === RespMsg::FAIL) {
             throw new \Exception(
                 is_string($resMsg->return_msg) ? $resMsg->return_msg : json_encode($resMsg->return_msg)
             );
