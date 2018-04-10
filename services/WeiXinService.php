@@ -639,9 +639,9 @@ class WeiXinService
         }
         //刷新token没有过期，去刷新token
         if (isset($tokenInfo['refreshTokenExpire']) && $tokenInfo['refreshTokenExpire'] > time()) {
-            $this->refreshAndSaveWebToken($appId, $tokenInfo);
-            return true;
+            return $this->refreshAndSaveWebToken($appId, $tokenInfo);
         }
+
         return false;
     }
 
@@ -649,6 +649,7 @@ class WeiXinService
      * 刷新并保存token
      * @param $appId string 公众号id
      * @param $tokenInfo array token信息
+     * @return bool|int
      */
     private function refreshAndSaveWebToken(string $appId, array $tokenInfo)
     {
@@ -663,10 +664,11 @@ class WeiXinService
             $appCache['refreshTokenExpire'] = $tokenInfo['refreshTokenExpire'];
 
             //保存信息
-            $this->saveWebTokenInfo($appCache, $returnInfo->return_msg->openid, $appId);
+            return $this->saveWebTokenInfo($appCache, $returnInfo->return_msg->openid, $appId);
         } else {//请求失败
             Yii::error('刷新token失败:' . json_encode($returnInfo->return_msg), __METHOD__);
         }
+        return false;
     }
 
     /**
@@ -697,6 +699,7 @@ class WeiXinService
      * @param array $info 具体信息
      * @param string $openId
      * @param string $appId 公众号id
+     * @return bool|int
      * @throws SystemException
      */
     public function saveWebTokenInfo(array $info, string $openId, string $appId)
@@ -705,14 +708,14 @@ class WeiXinService
         Yii::$app->cache->set('tokenInfo' . $openId . $appId, $info, $info['refreshTokenExpire']);
         //已存在数据则更新数据库
         if (WebUserAuthInfo::countByOpenIdAppId($openId, $appId)) {
-            WebUserAuthInfo::updateTokenInfo($info, $openId, $appId);
+            return WebUserAuthInfo::updateTokenInfo($info, $openId, $appId);
         } else {
             $model = new WebUserAuthInfo();
             if (!$model->load($info, '') || !$model->validate()) {
                 Yii::error('校验新的用户网页授权信息有误：' . json_encode($model->getFirstErrors()), __METHOD__);
                 throw new SystemException('授权失败，请重试');
             }
-            $model->insert();
+            return $model->insert();
         }
     }
 
