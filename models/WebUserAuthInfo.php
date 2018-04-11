@@ -42,7 +42,7 @@ class WebUserAuthInfo extends ActiveRecord
     public static function getRefreshTokenInfoByOpenIdAppId(string $openId, string $appId)
     {
         return self::find()->select(['refreshToken', 'refreshTokenExpire'])
-            ->where(['openId' => $openId, 'appId' => $appId])->one()->toArray();
+            ->where(['openId' => $openId, 'appId' => $appId])->asArray()->one();
     }
 
     /**
@@ -54,7 +54,7 @@ class WebUserAuthInfo extends ActiveRecord
     public static function getAccessToken(string $openId, string $appId)
     {
         return self::find()->select(['accessToken', 'accessTokenExpire'])
-            ->where(['openId' => $openId, 'appId' => $appId])->one()->toArray();
+            ->where(['openId' => $openId, 'appId' => $appId])->asArray()->one();
     }
 
     /**
