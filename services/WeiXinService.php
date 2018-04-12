@@ -707,7 +707,7 @@ class WeiXinService
     public function saveWebTokenInfo(WebUserAuthInfo $model, string $openId, string $appId, string $queryAppId = '')
     {
         $attrValues = $model->getAttributeValue();
-        if(!$attrValues){
+        if (!$attrValues) {
             throw new SystemException('授权信息为空');
         }
         //更新缓存

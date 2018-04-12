@@ -40,8 +40,8 @@ class WebUserAuthInfo extends ActiveRecord
     public function getAttributeValue()
     {
         $return = [];
-        foreach ($this->attributes() as $val){
-            if($this->$val)
+        foreach ($this->attributes() as $val) {
+            if ($this->$val)
                 $return[$val] = $this->$val;
         }
 
@@ -58,12 +58,12 @@ class WebUserAuthInfo extends ActiveRecord
     {
         $return = [];
         //如果存在查询的appId，则用来一起查
-        if($queryAppId){
+        if ($queryAppId) {
             $return = self::find()->select(['refreshToken', 'refreshTokenExpire'])
                 ->where(['openId' => $openId, 'queryAppId' => $queryAppId])->asArray()->one();
         }
         //存在数据则返回
-        if($return){
+        if ($return) {
             return $return;
         }
         return self::find()->select(['refreshToken', 'refreshTokenExpire'])
@@ -80,12 +80,12 @@ class WebUserAuthInfo extends ActiveRecord
     {
         $return = [];
         //如果存在查询的appId，则先查询这个
-        if($queryAppId){
+        if ($queryAppId) {
             $return = self::find()->select(['accessToken', 'accessTokenExpire'])
                 ->where(['openId' => $openId, 'queryAppId' => $queryAppId])->asArray()->one();
         }
         //存在数据则返回
-        if($return){
+        if ($return) {
             return $return;
         }
         return self::find()->select(['accessToken', 'accessTokenExpire'])
