@@ -10,6 +10,7 @@ use app\models\AppInfo;
 use app\models\AppShareConf;
 use app\models\RespMsg;
 use app\models\vo\AddMaterialForm;
+use app\models\WebUserAuthInfo;
 use app\services\AppChooseServices;
 use app\services\DataService;
 use app\services\WeiXinService;
@@ -293,6 +294,8 @@ class FacadeController extends Controller
     public function actionToGetWebToken($appId, $redirectUri, $scope = 'snsapi_base')
     {
         try {
+            $queryAppId = $appId;
+            Yii::$app->session->set('queryAppId', $queryAppId);
             // 选择实际调用的模型
             $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
             $appId = $appModel->getAppId();
@@ -301,7 +304,7 @@ class FacadeController extends Controller
             //get参数有openId则找该用户的刷新token信息
             if ($openId = Yii::$app->request->get('openId')) {
                 //尝试刷新网页授权token
-                $tokenExist = Yii::$app->weiXinService->refreshWebAccessTokenByOpenId($openId, $appId);
+                $tokenExist = Yii::$app->weiXinService->refreshWebAccessTokenByOpenId($openId, $appId, $queryAppId);
             }
             Yii::$app->session->set('webRedirectUri', $redirectUri);
             Yii::$app->session->set('webAccessTokenAppId', $appId);
@@ -333,23 +336,25 @@ class FacadeController extends Controller
     {
         $resp = new RespMsg(['return_code' => RespMsg::FAIL]);
         try {
-            $appCache['openId'] = Yii::$app->request->get('openid');//用户OPENID
-            $appCache['accessTokenExpire'] = time() + Yii::$app->request->get('expire_in', 6600);
-            $appCache['accessToken'] = Yii::$app->request->get('access_token');//用户访问令牌
-            $appCache['refreshToken'] = Yii::$app->request->get('refresh_token');//刷新访问令牌token
-            $appCache['refreshTokenExpire'] = time() + 60 * 60 * 24 * 14;
-
-            if (empty($appCache['openId']) || empty($appCache['accessToken']) || empty($appCache['refreshToken'])) {
+            //模型校验
+            $model = new WebUserAuthInfo();
+            $model->openId = Yii::$app->request->get('openid');//用户OPENID
+            $model->accessTokenExpire = time() + Yii::$app->request->get('expire_in', 6600);
+            $model->accessToken = Yii::$app->request->get('access_token');//用户访问令牌
+            $model->refreshToken = Yii::$app->request->get('refresh_token');//刷新访问令牌token
+            $model->refreshTokenExpire = time() + 60 * 60 * 24 * 14;
+            if (!$model->validate()) {
                 return "参数错误，网页授权失败，请重试~";
             }
 
             //更新缓存
-            $appCache['appId'] = Yii::$app->session->get('webAccessTokenAppId');
-            if ($appCache['appId'] === null) {
+            $model->appId = Yii::$app->session->get('webAccessTokenAppId');
+            $model->queryAppId = Yii::$app->session->get('queryAppId');
+            if ($model->appId === null || $model->queryAppId === null) {
                 throw new SystemException('session中的公众号id不存在');
             }
             //更新数据库和缓存
-            Yii::$app->weiXinService->saveWebTokenInfo($appCache, $appCache['openId'], $appCache['appId']);
+            Yii::$app->weiXinService->saveWebTokenInfo($model, $model->openId, $model->appId, $model->queryAppId);
 
             //回到原来业务
             $redirectUrl = Yii::$app->session->get('webRedirectUri');
@@ -392,14 +397,17 @@ class FacadeController extends Controller
      * }
      * </code>
      * @param string $openId
-     * @param string $accessToken
+     * @param string $appId
      * @return string json
      */
     public function actionGetWebUserInfo($openId, $appId)
     {
         $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         try {
-            $accessToken = Yii::$app->weiXinService->getWebAccessTokenByCacheOrDb($openId, $appId);
+            $queryAppId = $appId;
+            $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
+            $appId = $appModel->getAppId();
+            $accessToken = Yii::$app->weiXinService->getWebAccessTokenByCacheOrDb($openId, $appId, $queryAppId);
             $respMsg = Yii::$app->weiXinService->getWebUserInfo($openId, $accessToken);
         } catch (\Exception $e) {
             $respMsg->return_msg = $e->getMessage();

@@ -629,17 +629,17 @@ class WeiXinService
      * @param string $appId
      * @return null|string
      */
-    public function refreshWebAccessTokenByOpenId(string $openId, string $appId)
+    public function refreshWebAccessTokenByOpenId(string $openId, string $appId, string $queryAppId = '')
     {
         //缓存中判断信息是否存在
         $tokenInfo = Yii::$app->cache->get('tokenInfo' . $openId . $appId);
         if (!$tokenInfo || !is_array($tokenInfo)) {
             //缓存没有则从数据库中获取
-            $tokenInfo = WebUserAuthInfo::getRefreshTokenInfoByOpenIdAppId($openId, $appId);
+            $tokenInfo = WebUserAuthInfo::getRefreshTokenInfoByOpenIdAppId($openId, $appId, $queryAppId);
         }
         //刷新token没有过期，去刷新token
         if (isset($tokenInfo['refreshTokenExpire']) && $tokenInfo['refreshTokenExpire'] > time()) {
-            return $this->refreshAndSaveWebToken($appId, $tokenInfo);
+            return $this->refreshAndSaveWebToken($appId, $tokenInfo, $queryAppId);
         }
 
         return false;
@@ -651,20 +651,21 @@ class WeiXinService
      * @param $tokenInfo array token信息
      * @return bool|int
      */
-    private function refreshAndSaveWebToken(string $appId, array $tokenInfo)
+    private function refreshAndSaveWebToken(string $appId, array $tokenInfo, string $queryAppId = '')
     {
         //刷新token并拿到openId
         $returnInfo = $this->getWebPageRefreshToken($appId, $tokenInfo['refreshToken']);
         //请求成功
         if ($returnInfo->return_code == RespMsg::SUCCESS) {
             //将数据重新保存
-            $appCache['accessTokenExpire'] = time() + $returnInfo->return_msg->expires_in - 200;
-            $appCache['accessToken'] = $returnInfo->return_msg->access_token;
-            $appCache['refreshToken'] = $returnInfo->return_msg->refresh_token;
-            $appCache['refreshTokenExpire'] = $tokenInfo['refreshTokenExpire'];
+            $model = new WebUserAuthInfo();
+            $model->accessTokenExpire = time() + $returnInfo->return_msg->expires_in - 600;
+            $model->accessToken = $returnInfo->return_msg->access_token;
+            $model->refreshToken = $returnInfo->return_msg->refresh_token;//刷新访问令牌token
+            $model->refreshTokenExpire = $tokenInfo['refreshTokenExpire'];
 
             //保存信息
-            return $this->saveWebTokenInfo($appCache, $returnInfo->return_msg->openid, $appId);
+            return $this->saveWebTokenInfo($model, $returnInfo->return_msg->openid, $appId, $queryAppId);
         } else {//请求失败
             Yii::error('刷新token失败:' . json_encode($returnInfo->return_msg), __METHOD__);
         }
@@ -678,14 +679,14 @@ class WeiXinService
      * @return null|string
      * @throws SystemException
      */
-    public function getWebAccessTokenByCacheOrDb(string $openId, string $appId)
+    public function getWebAccessTokenByCacheOrDb(string $openId, string $appId, string $queryAppId = '')
     {
         //缓存中判断信息是否存在
         $tokenInfo = Yii::$app->cache->get('tokenInfo' . $openId . $appId);
         //如果缓存中的网页授权信息没有过期
         if (!$tokenInfo || !is_array($tokenInfo)) {
             //缓存中的授权信息过期，查询数据库
-            $tokenInfo = WebUserAuthInfo::getAccessToken($openId, $appId);
+            $tokenInfo = WebUserAuthInfo::getAccessToken($openId, $appId, $queryAppId);
         }
         if (isset($tokenInfo['accessTokenExpire']) && $tokenInfo['accessTokenExpire'] > time()) {
             return $tokenInfo['accessToken'];
@@ -696,25 +697,25 @@ class WeiXinService
 
     /**
      * 保存网页授权token信息
-     * @param array $info 具体信息
+     * @param WebUserAuthInfo $model 具体信息模型
      * @param string $openId
      * @param string $appId 公众号id
+     * @param string $queryAppId 原本查询的公众号id
      * @return bool|int
      * @throws SystemException
      */
-    public function saveWebTokenInfo(array $info, string $openId, string $appId)
+    public function saveWebTokenInfo(WebUserAuthInfo $model, string $openId, string $appId, string $queryAppId = '')
     {
+        $attrValues = $model->getAttributeValue();
+        if (!$attrValues) {
+            throw new SystemException('授权信息为空');
+        }
         //更新缓存
-        Yii::$app->cache->set('tokenInfo' . $openId . $appId, $info, $info['refreshTokenExpire']);
+        Yii::$app->cache->set('tokenInfo' . $openId . $appId, $attrValues, $model->refreshTokenExpire);
         //已存在数据则更新数据库
-        if (WebUserAuthInfo::countByOpenIdAppId($openId, $appId)) {
-            return WebUserAuthInfo::updateTokenInfo($info, $openId, $appId);
+        if (WebUserAuthInfo::countByOpenIdAppId($openId, $appId, $queryAppId)) {
+            return WebUserAuthInfo::updateTokenInfo($attrValues, $openId, $appId, $queryAppId);
         } else {
-            $model = new WebUserAuthInfo();
-            if (!$model->load($info, '') || !$model->validate()) {
-                Yii::error('校验新的用户网页授权信息有误：' . json_encode($model->getFirstErrors()), __METHOD__);
-                throw new SystemException('授权失败，请重试');
-            }
             return $model->insert();
         }
     }
