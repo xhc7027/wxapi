@@ -85,7 +85,7 @@ class AppChooseServices
     private function confirmApp($queryId, $type)
     {
         if (!$queryId) {//如果此值为空，则选择代分享的账号
-            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
+            $this->appInfo = $this->getShareAppInfo();
             $this->supplierIdApp = false;
             return;
         }
@@ -98,12 +98,12 @@ class AppChooseServices
         }
         //2. 没有找到公众号信息，用代分享
         if (!$this->appInfo) {
-            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
+            $this->appInfo = $this->getShareAppInfo();
             $this->supplierIdApp = false;
         }
         //3. 如果存在公众号，则根据是否符合所需功能维持公众号或者选择代分享
         if (!Yii::$app->params['wxApiAuthorize'][$this->functionName][$this->getAppType()]) {
-            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
+            $this->appInfo = $this->getShareAppInfo();
             $this->supplierIdApp = false;
             return;
         }
@@ -166,5 +166,14 @@ class AppChooseServices
 
         //没有就需要发起网页授权
         return true;
+    }
+
+    /**
+     * 获取分享公众号信息
+     * @return AppInfo
+     */
+    private function getShareAppInfo()
+    {
+        return AppInfo::findOne(['appId' => Yii::$app->params['sharedAppId']]);
     }
 }
