@@ -140,19 +140,21 @@ class WeiXinService
 
         //判断缓存中是否存在令牌
         $key = 'component_access_token_' . Yii::$app->params['wxConfig']['appId'];
-        /*try {
-            $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
-            if ($accessTokenAry) {
-                $oneUpdatedAt = $accessTokenAry['oneUpdatedAt'];
-                $expiresIn = 6600 - (time() - $oneUpdatedAt);
-                $accessTokenAry['expiresIn'] = $expiresIn;
-                $respMsg->return_msg = $accessTokenAry;
-                Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
-                return $respMsg;
+        if(Yii::$app->params['accessTokenUseCache']){
+            try {
+                $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
+                if ($accessTokenAry) {
+                    $oneUpdatedAt = $accessTokenAry['oneUpdatedAt'];
+                    $expiresIn = 6600 - (time() - $oneUpdatedAt);
+                    $accessTokenAry['expiresIn'] = $expiresIn;
+                    $respMsg->return_msg = $accessTokenAry;
+                    Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
+                    return $respMsg;
+                }
+            } catch (ErrorException $e) {
+                Yii::$app->cache->delete($key);
             }
-        } catch (ErrorException $e) {
-            Yii::$app->cache->delete($key);
-        }*/
+        }
 
         //如果不存在则说明已经过期，此时重新获取并加入到缓存
         $componentInfo = ComponentInfo::findOne(Yii::$app->params['wxConfig']['appId']);
@@ -200,18 +202,21 @@ class WeiXinService
 
         //判断缓存中是否存在令牌
         $key = 'app_access_token_' . $appInfo->appId;
-        /*try {
-            $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
-            if ($accessTokenAry) {
-                $expiresIn = 6600 - (time() - $accessTokenAry['zeroUpdatedAt']);
-                $accessTokenAry['expiresIn'] = $expiresIn;
-                $respMsg->return_msg = $accessTokenAry;
-                Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
-                return $respMsg;
+        //通过配置使获取token能调用缓存
+        if(Yii::$app->params['accessTokenUseCache']){
+            try {
+                $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
+                if ($accessTokenAry) {
+                    $expiresIn = 6600 - (time() - $accessTokenAry['zeroUpdatedAt']);
+                    $accessTokenAry['expiresIn'] = $expiresIn;
+                    $respMsg->return_msg = $accessTokenAry;
+                    Yii::$app->cache->set($key, json_encode($respMsg->return_msg), $respMsg->return_msg['expiresIn']);
+                    return $respMsg;
+                }
+            } catch (ErrorException $e) {
+                Yii::$app->cache->delete($key);
             }
-        } catch (ErrorException $e) {
-            Yii::$app->cache->delete($key);
-        }*/
+        }
 
         //如果不存在则说明已经过期，此时重新获取并加入到缓存
         $respMsg = $this->getComponentAccessToken();
