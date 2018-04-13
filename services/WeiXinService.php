@@ -140,7 +140,7 @@ class WeiXinService
 
         //判断缓存中是否存在令牌
         $key = 'component_access_token_' . Yii::$app->params['wxConfig']['appId'];
-        try {
+        /*try {
             $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
             if ($accessTokenAry) {
                 $oneUpdatedAt = $accessTokenAry['oneUpdatedAt'];
@@ -152,7 +152,7 @@ class WeiXinService
             }
         } catch (ErrorException $e) {
             Yii::$app->cache->delete($key);
-        }
+        }*/
 
         //如果不存在则说明已经过期，此时重新获取并加入到缓存
         $componentInfo = ComponentInfo::findOne(Yii::$app->params['wxConfig']['appId']);
@@ -200,7 +200,7 @@ class WeiXinService
 
         //判断缓存中是否存在令牌
         $key = 'app_access_token_' . $appInfo->appId;
-        try {
+        /*try {
             $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
             if ($accessTokenAry) {
                 $expiresIn = 6600 - (time() - $accessTokenAry['zeroUpdatedAt']);
@@ -211,7 +211,7 @@ class WeiXinService
             }
         } catch (ErrorException $e) {
             Yii::$app->cache->delete($key);
-        }
+        }*/
 
         //如果不存在则说明已经过期，此时重新获取并加入到缓存
         $respMsg = $this->getComponentAccessToken();

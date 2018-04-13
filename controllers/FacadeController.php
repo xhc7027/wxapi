@@ -291,13 +291,13 @@ class FacadeController extends Controller
      * }
      * </code
      */
-    public function actionToGetWebToken($appId, $redirectUri, $scope = 'snsapi_base')
+    public function actionToGetWebToken($appId, $redirectUri, $scope = 'snsapi_base', $type = 'appId')
     {
         try {
             $queryAppId = $appId;
             Yii::$app->session->set('queryAppId', $queryAppId);
             // 选择实际调用的模型
-            $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
+            $appModel = new AppChooseServices($appId, 'userManagementAuthorize', $type);
             $appId = $appModel->getAppId();
             //初始化token信息是否可用状态为false
             $tokenExist = false;
@@ -344,6 +344,7 @@ class FacadeController extends Controller
             $model->refreshToken = Yii::$app->request->get('refresh_token');//刷新访问令牌token
             $model->refreshTokenExpire = time() + 60 * 60 * 24 * 14;
             if (!$model->validate()) {
+                Yii::error('授权回调参数错误:' . json_encode($model->getErrors()), __METHOD__);
                 return "参数错误，网页授权失败，请重试~";
             }
 

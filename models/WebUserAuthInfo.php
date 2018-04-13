@@ -7,6 +7,15 @@ use yii\db\ActiveRecord;
 
 /**
  * 网页授权用户信息表
+ *
+ * @property string $appId
+ * @property string $openId
+ * @property string $accessToken
+ * @property integer $accessTokenExpire
+ * @property string $refreshToken
+ * @property integer $refreshTokenExpire
+ * @property string $queryAppId
+ *
  * @package app\models
  */
 class WebUserAuthInfo extends ActiveRecord
