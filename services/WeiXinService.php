@@ -316,11 +316,8 @@ class WeiXinService
         $jsApiTicket = null;
         $appModel = new AppChooseServices($appId, 'jsSdkShare', $type);
         $appId = $appModel->getAppId();
-        if (!$appModel->getSupplierIdApp()) {//判断是代分享还是自身的公众号
-            $jsApiTicket = $appModel->getJsApiTicket();
-        } else {
-            $jsApiTicket = $this->getJsApiTicket($appId);
-        }
+
+        $jsApiTicket = $this->getJsApiTicket($appId);
         if (!$jsApiTicket) {
             return new RespMsg(['return_code' => RespMsg::FAIL, 'return_msg' => '获取票据失败']);
         }
@@ -632,7 +629,7 @@ class WeiXinService
      * 通过openId刷新网页授权token
      * @param string $openId
      * @param string $appId
-     * @return null|string
+     * @return bool|int
      */
     public function refreshWebAccessTokenByOpenId(string $openId, string $appId, string $queryAppId = '')
     {
@@ -654,7 +651,7 @@ class WeiXinService
      * 刷新并保存token
      * @param $appId string 公众号id
      * @param $tokenInfo array token信息
-     * @return bool|int
+     * @return bool|string 成功则是网页授权access_token，反之是false
      */
     private function refreshAndSaveWebToken(string $appId, array $tokenInfo, string $queryAppId = '')
     {
@@ -670,7 +667,9 @@ class WeiXinService
             $model->refreshTokenExpire = $tokenInfo['refreshTokenExpire'];
 
             //保存信息
-            return $this->saveWebTokenInfo($model, $returnInfo->return_msg->openid, $appId, $queryAppId);
+            $this->saveWebTokenInfo($model, $returnInfo->return_msg->openid, $appId, $queryAppId);
+
+            return $model->accessToken;
         } else {//请求失败
             Yii::error('刷新token失败:' . json_encode($returnInfo->return_msg), __METHOD__);
         }
@@ -696,8 +695,17 @@ class WeiXinService
         if (isset($tokenInfo['accessTokenExpire']) && $tokenInfo['accessTokenExpire'] > time()) {
             return $tokenInfo['accessToken'];
         }
+        $accessToken = $this->refreshAndSaveWebToken($appId, $tokenInfo, $queryAppId);
+        if($accessToken){
+            return $accessToken;
+        }
 
-        throw new SystemException('access_token过期或不存在');
+        Yii::error(
+            '公众号：' . $queryAppId . '使用公众号:' . $appId . '为用户openId=' . $openId
+            . '网页授权access_token过期，刷新时失败',
+            __METHOD__
+        );
+        throw new SystemException('刷新access_token失败');
     }
 
     /**

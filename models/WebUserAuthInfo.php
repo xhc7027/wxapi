@@ -108,7 +108,7 @@ class WebUserAuthInfo extends ActiveRecord
      * @param string $appId
      * @return int
      */
-    public static function updateTokenInfo(array $info, string $openId, string $appId, string $queryAppId)
+    public static function updateTokenInfo(array $info, string $openId, string $appId, string $queryAppId = '')
     {
         return self::updateAll(
             $info,

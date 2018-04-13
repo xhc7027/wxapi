@@ -5,8 +5,8 @@ namespace app\services;
 
 use app\models\AppInfo;
 use app\models\AppShareConf;
-use yii\base\Exception;
 use Yii;
+use yii\base\Exception;
 
 class AppChooseServices
 {
@@ -38,14 +38,18 @@ class AppChooseServices
             throw new Exception('类型错误');
         }
         $this->functionName = $functionName;
-        //如果此值为空，则选择代分享的账号
-        if (!$queryId) {
-            $this->appInfo = (new AppShareConf())->getShareInfo();
-            $this->supplierIdApp = false;
-        } else {
-            $this->appInfo = AppInfo::findOne([$type => $queryId, 'infoType' => ['authorized', 'updateauthorized']]);
-            $this->confirmApp();
-        }
+
+        $this->confirmApp($queryId, $type);
+
+    }
+
+    /**
+     * 获取公众号appInfo模型
+     * @return AppInfo
+     */
+    public function getAppInfo()
+    {
+        return $this->appInfo;
     }
 
     /**
@@ -78,21 +82,30 @@ class AppChooseServices
     /**
      * 选择是否需要使用代分享
      */
-    private function confirmApp()
+    private function confirmApp($queryId, $type)
     {
+        if (!$queryId) {//如果此值为空，则选择代分享的账号
+            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
+            $this->supplierIdApp = false;
+            return;
+        }
+
+        //如果此值为空，则选择代分享的账号
+        $this->appInfo = AppInfo::findOne([$type => $queryId, 'infoType' => ['authorized', 'updateauthorized']]);
         //1. 如果没有选择功能，则什么都不做
         if (!$this->functionName) {
             return;
         }
         //2. 没有找到公众号信息，用代分享
         if (!$this->appInfo) {
-            $this->appInfo = (new AppShareConf())->getShareInfo();
+            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
             $this->supplierIdApp = false;
         }
         //3. 如果存在公众号，则根据是否符合所需功能维持公众号或者选择代分享
         if (!Yii::$app->params['wxApiAuthorize'][$this->functionName][$this->getAppType()]) {
-            $this->appInfo = (new AppShareConf())->getShareInfo();
+            $this->appInfo = AppInfo::findOne(['appId' => 'wxa1bd0cc03b0ddb3f', 'infoType' => ['authorized', 'updateauthorized']]);
             $this->supplierIdApp = false;
+            return;
         }
     }
 
@@ -136,5 +149,22 @@ class AppChooseServices
             return $this->appInfo->getJsApiTicket();
         }
         return null;
+    }
+
+    /**
+     * 是否需要去发起网页授权
+     * @param string $openId openId
+     * @param string $queryAppId 查询的公众号id
+     * @return bool|int
+     */
+    public function isNeedToGetWebAuthorizeUri(string $openId, string $queryAppId = '')
+    {
+        //如果有传openId则尝试去刷新access_token，并返回是否刷新成功
+        if($openId){
+            return !Yii::$app->weiXinService->refreshWebAccessTokenByOpenId($openId, $this->getAppId(), $queryAppId);
+        }
+
+        //没有就需要发起网页授权
+        return true;
     }
 }
