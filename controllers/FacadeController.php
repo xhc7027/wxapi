@@ -4,21 +4,20 @@ namespace app\controllers;
 
 use app\behaviors\MonitorBehavior;
 use app\behaviors\SupplierAccessFilter;
+use app\commons\FileUtil;
 use app\commons\HttpUtil;
 use app\exceptions\SystemException;
 use app\models\AppInfo;
-use app\models\AppShareConf;
 use app\models\RespMsg;
 use app\models\vo\AddMaterialForm;
 use app\models\WebUserAuthInfo;
 use app\services\AppChooseServices;
 use app\services\DataService;
 use app\services\WeiXinService;
+use Curl\Curl;
 use Yii;
 use yii\filters\VerbFilter;
 use yii\web\Controller;
-use Curl\Curl;
-use app\commons\FileUtil;
 
 /**
  * 面向内部调用的高层外观接口
@@ -166,20 +165,11 @@ class FacadeController extends Controller
     /**
      * 获取指定公众号对应的访问令牌
      * @param string $appId 公众号appId
-     * @return string []
+     * @return string
      */
     public function actionAccessToken($appId)
     {
-        $respMsg = new RespMsg();
-        $appInfo = AppInfo::findOne($appId);
-        if ($appInfo) {
-            $respMsg = $this->getAccessToken($appInfo);
-        } else {
-            $respMsg->return_code = RespMsg::FAIL;
-            $respMsg->return_msg = '没有找到关于' . $appId . '的信息。';
-        }
-
-        return $respMsg->toJsonStr();
+        return $this->actionGetAccesstoken($appId);
     }
 
     /**
@@ -253,75 +243,35 @@ class FacadeController extends Controller
      * }
      * </code
      */
-    public function actionGetWebToken($appId, $redirectUri, $scope = 'snsapi_base')
-    {
-        $respMsg = new RespMsg();
-        // 选择实际调用的模型
-        $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
-        $appId = $appModel->getAppId();
-        $accessToken = Yii::$app->weiXinService->getWebAccessTokenByCacheOrDb($appId);
-        //如果获取access_token成功
-        if ($accessToken) {
-            $respMsg->return_msg['code'] = 'accessToken';
-            $respMsg->return_msg['msg'] = $accessToken;
-        } else {
-            //获取access_token失败则重新授权
-            $msg = Yii::$app->weiXinService->getWebAuthorizeUri($appId, $redirectUri, $scope);
-            $respMsg->return_msg['code'] = 'redirectUrl';
-            $respMsg->return_msg['msg'] = $msg->return_msg['reqCodeUrl'];
-        }
-
-        return $respMsg->toJsonStr();
-
-    }
-
-    /**
-     * @param $appId
-     * @param $redirectUri
-     * @param string $scope
-     * @return
-     * <code>
-     * {
-     *  "return_code" : "SUCCESS",
-     *   "return_msg" : {
-     *      "code" : accessToken/redirectUrl,//如果是accessToken 则msg数据是
-     *               数组['access_token', 'openid']，反之，是跳转链接
-     *      "msg" : "xxxxxxxx"
-     *   }
-     * }
-     * </code
-     */
-    public function actionToGetWebToken($appId, $redirectUri, $scope = 'snsapi_base')
+    public function actionToGetWebToken($appId, $redirectUri, $scope = 'snsapi_base', $type = 'appId')
     {
         try {
-            $queryAppId = $appId;
-            Yii::$app->session->set('queryAppId', $queryAppId);
+            //先赋值当前查询的公众号id
+            $openId = Yii::$app->request->get('openId', '');
+
             // 选择实际调用的模型
-            $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
-            $appId = $appModel->getAppId();
-            //初始化token信息是否可用状态为false
-            $tokenExist = false;
-            //get参数有openId则找该用户的刷新token信息
-            if ($openId = Yii::$app->request->get('openId')) {
-                //尝试刷新网页授权token
-                $tokenExist = Yii::$app->weiXinService->refreshWebAccessTokenByOpenId($openId, $appId, $queryAppId);
-            }
+            $appService = new AppChooseServices($appId, 'userManagementAuthorize', $type);
+            //设置重定向链接，以及真正的授权公众号id
             Yii::$app->session->set('webRedirectUri', $redirectUri);
-            Yii::$app->session->set('webAccessTokenAppId', $appId);
+            Yii::$app->session->set('webAccessTokenAppId', $appService->getAppId());
+
+            $isFlush = $appService->isNeedToGetWebAuthorizeUri($openId);
             //如果刷新成功
-            if ($tokenExist) {
+            if (!$isFlush) {
                 //回到原来业务
                 $redirectUrl = strpos($redirectUri, '?') !== false ? $redirectUri . '&openid=' . $openId
                     : $redirectUri . '?' . '&openid=' . $openId;
-                return $this->redirect($redirectUrl);
+            } else {
+                //没有刷新成功则重新授权
+                $msg = Yii::$app->weiXinService->getWebAuthorizeUri(
+                    $appService->getAppId(),
+                    Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/facade/get-open-id-and-access-token?',
+                    $scope
+                );
+                $redirectUrl = $msg->return_msg['reqCodeUrl'];
             }
-            //没有刷新成功则重新授权
-            $msg = Yii::$app->weiXinService->getWebAuthorizeUri(
-                $appId,
-                Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/facade/get-open-id-and-access-token?',
-                $scope);
 
-            return $this->redirect($msg->return_msg['reqCodeUrl']);
+            return $this->redirect($redirectUrl);
         } catch (\Exception $e) {
             Yii::error('跳转到网页授权错误:' . $e->getMessage(), __METHOD__);
             return $this->redirect($redirectUri);
@@ -344,17 +294,17 @@ class FacadeController extends Controller
             $model->refreshToken = Yii::$app->request->get('refresh_token');//刷新访问令牌token
             $model->refreshTokenExpire = time() + 60 * 60 * 24 * 14;
             if (!$model->validate()) {
+                Yii::error('授权回调参数错误:' . json_encode($model->getErrors()), __METHOD__);
                 return "参数错误，网页授权失败，请重试~";
             }
 
             //更新缓存
             $model->appId = Yii::$app->session->get('webAccessTokenAppId');
-            $model->queryAppId = Yii::$app->session->get('queryAppId');
-            if ($model->appId === null || $model->queryAppId === null) {
+            if ($model->appId === null) {
                 throw new SystemException('session中的公众号id不存在');
             }
             //更新数据库和缓存
-            Yii::$app->weiXinService->saveWebTokenInfo($model, $model->openId, $model->appId, $model->queryAppId);
+            Yii::$app->weiXinService->saveWebTokenInfo($model, $model->openId, $model->appId);
 
             //回到原来业务
             $redirectUrl = Yii::$app->session->get('webRedirectUri');
@@ -592,23 +542,6 @@ class FacadeController extends Controller
         return true;
     }
 
-
-    /**
-     * 根据wxid获取授权方的appid
-     * @param int $wxid
-     * @return null
-     */
-    private static function getAppidByWxid($wxid)
-    {
-        $url = Yii::$app->params['serviceDomain']['iDouZiDomain'] . '/supplier/api/getAppidByWxid';
-        $params = [
-            'apikey' => '839',
-            'wxid' => $wxid,
-        ];
-        $resp = HttpUtil::get($url, http_build_query($params));
-        return $resp->return_msg->return_msg;
-    }
-
     /**
      *  根据wxid
      * @param null $appId
@@ -617,20 +550,25 @@ class FacadeController extends Controller
     public function actionGetAccesstoken($appId)
     {
         $respMsg = new RespMsg();
-        $flag = false;
-        $appInfo = AppInfo::find()->where(['appId' => $appId, 'verifyTypeInfo' => 0, 'serviceTypeInfo' => 2, 'infoType' => 'authorized'])
-            ->orderBy('twoUpdatedAt DESC')->one();
-        if ($appInfo) {
+        try {
+            //获取该公众号
+            $appInfo = AppInfo::findOne($appId);
+            if (!$appInfo) {
+                throw new SystemException('公众号:' . $appId . '不存在');
+            }
             $respMsg = $this->getAccessToken($appInfo);
             if ($respMsg->return_code == RespMsg::SUCCESS) {
-                $flag = true;
+                return $respMsg;
             }
+            Yii::error('公众号：' . $appId . '网页授权access_token过期，刷新时失败', __METHOD__);
+            $respMsg->return_msg = '获取网页授权access_toke失败';
+            $respMsg->return_code = RespMsg::FAIL;
+        } catch (\Exception $e) {
+            Yii::error('公众号：' . $appId . '网页授权access_token过期，刷新时失败', __METHOD__);
+            $respMsg->return_msg = $e->getMessage();
+            $respMsg->return_code = RespMsg::FAIL;
         }
 
-        if (!$flag) {
-            $model = (new AppShareConf())->getShareInfo();//TODO 1.轮询获取带分享账号
-            $respMsg->return_msg = $model->getAccessToken();
-        }
         return $respMsg;
     }
 
