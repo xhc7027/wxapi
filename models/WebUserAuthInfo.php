@@ -65,18 +65,8 @@ class WebUserAuthInfo extends ActiveRecord
      */
     public static function getRefreshTokenInfoByOpenIdAppId(string $openId, string $appId, string $queryAppId = '')
     {
-        $return = [];
-        //如果存在查询的appId，则用来一起查
-        if ($queryAppId) {
-            $return = self::find()->select(['refreshToken', 'refreshTokenExpire'])
-                ->where(['openId' => $openId, 'queryAppId' => $queryAppId])->asArray()->one();
-        }
-        //存在数据则返回
-        if ($return) {
-            return $return;
-        }
         return self::find()->select(['refreshToken', 'refreshTokenExpire'])
-            ->where(['openId' => $openId, 'appId' => $appId])->asArray()->one();
+            ->where(['appId' => $appId])->asArray()->one();
     }
 
     /**
@@ -87,18 +77,8 @@ class WebUserAuthInfo extends ActiveRecord
      */
     public static function getAccessToken(string $openId, string $appId, string $queryAppId = '')
     {
-        $return = [];
-        //如果存在查询的appId，则先查询这个
-        if ($queryAppId) {
-            $return = self::find()->select(['accessToken', 'accessTokenExpire'])
-                ->where(['openId' => $openId, 'queryAppId' => $queryAppId])->asArray()->one();
-        }
-        //存在数据则返回
-        if ($return) {
-            return $return;
-        }
         return self::find()->select(['accessToken', 'accessTokenExpire'])
-            ->where(['openId' => $openId, 'appId' => $appId])->asArray()->one();
+            ->where(['appId' => $appId])->asArray()->one();
     }
 
     /**
@@ -112,8 +92,8 @@ class WebUserAuthInfo extends ActiveRecord
     {
         return self::updateAll(
             $info,
-            'openId=:openId AND appId = :appId and queryAppId=:queryAppId',
-            array(':appId' => $appId, ':openId' => $openId, ':queryAppId' => $queryAppId)
+            'openId=:openId AND appId = :appId',
+            array(':appId' => $appId, ':openId' => $openId)
         );
     }
 
@@ -125,6 +105,6 @@ class WebUserAuthInfo extends ActiveRecord
      */
     public static function countByOpenIdAppId(string $openId, string $appId, string $queryAppId)
     {
-        return self::find()->where(['openId' => $openId, 'appId' => $appId, 'queryAppId' => $queryAppId])->count();
+        return self::find()->where(['appId' => $appId])->count();
     }
 }
