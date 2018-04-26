@@ -224,4 +224,39 @@ class RpcService
 
         return $resMsg;
     }
+
+    /**
+     * 正常情况下将返回下面数据：<br>
+     * <code>
+     * {
+     *   "return_code":"SUCCESS",
+     *   "return_msg":
+     *     {
+     *       "appId":"wx57b1371bda498a46",
+     *       "nonceStr":"hgJTNdOA1JjZTcFi",
+     *       "timestamp":1476264449,
+     *       "url":"http:\/\/weixinapi.idouzi.com\/facade\/web-page?appid=wx57b1371bda498a46",
+     *       "signature":"cbd0ba3ae922916af55aa32b5c010661a452835c",
+     *     }
+     * }
+     * </code>
+     * @param string $appid 公众号appId
+     * @param string $url 用户访问的当前网页地址
+     * @return string
+     */
+    public function getJsSdkConfFromApi($id, $url, $type)
+    {
+        $respMsg = new RespMsg();
+        //1.如果请求的方式不是appId或wxId中的一个
+        if (!in_array($type, array('appId', 'wxId'))) {
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '请求类型有误';
+            return $respMsg;
+        }
+
+        $signPackage = Yii::$app->weiXinService->getSignPackage4Js($url, $id, $type);
+
+        $respMsg->return_msg = $signPackage;
+        return $respMsg;
+    }
 }

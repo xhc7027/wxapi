@@ -117,9 +117,9 @@ class WeiXinService
                 'timestamp' => time(),
             ];
             try {
-                $sign = (new SecurityUtil($params, Yii::$app->params['signKey']['iDouZiSignKey']))->generateSign();
+                $sign = (new SecurityUtil($params, Yii::$app->params['publicKeys']['idouzi']))->generateSign();
                 $params['sign'] = $sign;
-                $curl->get(Yii::$app->params['serviceDomain']['iDouZiDomain'] . '/index.php', $params);
+                $curl->get(Yii::$app->params['domains']['idouzi'] . '/index.php', $params);
                 if ($curl->error) {
                     Yii::error('主动通知爱豆子用户:' . $appInfo->appId . '取消绑定时发现错误', __METHOD__);
                 }
@@ -399,7 +399,7 @@ class WeiXinService
         $componentAppId = Yii::$app->params['wxConfig']['appId'];
         $reqCodeUrl = Yii::$app->params['wxConfig']['openUrl'] . '/connect/oauth2/authorize'
             . '?appid=' . $appId
-            . '&redirect_uri=' . urlencode(Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/component/redirect')
+            . '&redirect_uri=' . urlencode(Yii::$app->params['domains']['wxapi'] . '/component/redirect')
             . '&component_appid=' . $componentAppId
             . '&response_type=code'
             . '&scope=' . $scope
@@ -422,7 +422,7 @@ class WeiXinService
         $componentAppId = Yii::$app->params['wxConfig']['appId'];
         $reqCodeUrl = Yii::$app->params['wxConfig']['openUrl'] . '/connect/oauth2/authorize'
             . '?appid=' . $appId
-            . '&redirect_uri=' . urlencode(Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/component/redirect-for-fx')
+            . '&redirect_uri=' . urlencode(Yii::$app->params['domains']['wxapi'] . '/component/redirect-for-fx')
             . '&component_appid=' . $componentAppId
             . '&response_type=code'
             . '&scope=' . $scope
@@ -478,7 +478,7 @@ class WeiXinService
         $cookie = Yii::$app->request->getCookies();
         if (isset($cookie["user_auth_data"]->value)) {
             $auth_data = $cookie["user_auth_data"]->value;
-            $newSign = md5($auth_data['access_token'] . '&' . $auth_data['openid'] . '&' . Yii::$app->params['signKey']['apiSignKey']);
+            $newSign = md5($auth_data['access_token'] . '&' . $auth_data['openid'] . '&' . Yii::$app->params['publicKeys']['wxapi']);
             if (isset($auth_data['sign']) && $newSign == $auth_data['sign']) {
                 $accessToken = $auth_data['access_token'];
                 $openId = $auth_data['openid'];
@@ -488,7 +488,7 @@ class WeiXinService
         if (empty($accessToken) || empty($openId)) {
             if (isset($cookie["user_refreshToken"]->value)) {
                 $refreshData = $cookie["user_refreshToken"]->value;
-                $newSign = md5($refreshData['refresh_token'] . '&' . Yii::$app->params['signKey']['voteSignKey']);
+                $newSign = md5($refreshData['refresh_token'] . '&' . Yii::$app->params['rpc']['new-vote']);
                 if (isset($refreshData['sign']) && $newSign == $refreshData['sign']) {
                     //2.1、refreshToken未过期，则去代理平台刷新授权token
                     $resp = $this->refreshTokenFromApi($appId, $refreshData['refresh_token']);
@@ -529,7 +529,7 @@ class WeiXinService
         $resp = $this->getWebPageRefreshToken($appId, $refreshToken);
         if (isset($resp['return_code']) && $resp['return_code'] == 'SUCCESS') {
             $signString = $resp['return_msg']['access_token'] . '&' . $resp['return_msg']['openid'];
-            $resp['return_msg']['sign'] = md5($signString . '&' . Yii::$app->params['signKey']['apiSignKey']);
+            $resp['return_msg']['sign'] = md5($signString . '&' . Yii::$app->params['publicKeys']['wxapi']);
             $cookie = new Cookie(
                 ['name' => 'user_auth_data',
                     'value' => json_encode($resp['return_msg']),

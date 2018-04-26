@@ -81,7 +81,7 @@ class FacadeController extends Controller
             $url = 'https://mp.weixin.qq.com/cgi-bin/componentloginpage'
                 . '?component_appid=' . $appId
                 . '&pre_auth_code=' . $respMsg->return_msg['preAuthCode']
-                . '&redirect_uri=' . urlencode(Yii::$app->params['serviceDomain']['weiXinApiDomain']
+                . '&redirect_uri=' . urlencode(Yii::$app->params['domains']['wxapi']
                     . '/component/component-login-redirect?wxid=' . $wxid
                 );
             return $this->redirect($url);
@@ -289,7 +289,7 @@ class FacadeController extends Controller
                 //没有刷新成功则重新授权
                 $msg = Yii::$app->weiXinService->getWebAuthorizeUri(
                     $appService->getAppId(),
-                    Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/facade/get-open-id-and-access-token?',
+                    Yii::$app->params['domains']['wxapi'] . '/facade/get-open-id-and-access-token?',
                     $scope
                 );
                 $redirectUrl = $msg->return_msg['reqCodeUrl'];
