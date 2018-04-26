@@ -58,7 +58,7 @@ class ApiAccessFilter extends Behavior
                 } else {//如果当前用户没有登录，则必须进行接口认证。
                     $dataArr = Yii::$app->request->get();
                     unset($dataArr['r']);
-                    $security = new SecurityUtil($dataArr, Yii::$app->params['signKey']['apiSignKey']);
+                    $security = new SecurityUtil($dataArr, Yii::$app->params['publicKeys']['wxapi']);
                     $event->isValid = $security->signVerification();
 
                     //接口认证通过后，还需要判断是否有商家用户的编号

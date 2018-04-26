@@ -43,7 +43,7 @@ class SupplierAccessFilter extends Behavior
             try {
                 $dataArr = Yii::$app->request->get();
                 unset($dataArr['r']);
-                $security = new SecurityUtil($dataArr, Yii::$app->params['signKey']['apiSignKey']);
+                $security = new SecurityUtil($dataArr, Yii::$app->params['publicKeys']['wxapi']);
                 $flag = $security->signVerification();
                 if (!$flag) {
                     $event->isValid = false;
