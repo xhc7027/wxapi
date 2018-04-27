@@ -13,4 +13,10 @@ if (!$staticConfig) {
 }
 
 $staticConfig['components']['db']['slaveConfig']['attributes'] = [PDO::ATTR_TIMEOUT => 10];
+
+$commonConfig = Yaconf::get('common');
+if (!$commonConfig) {
+    throw new Exception('不能加载配置文件:common');
+}
+$staticConfig['params'] = array_merge($commonConfig, $staticConfig['params']);
 return array_merge($dynamicConfig, $staticConfig);

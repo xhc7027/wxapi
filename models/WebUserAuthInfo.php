@@ -77,7 +77,7 @@ class WebUserAuthInfo extends ActiveRecord
      */
     public static function getAccessToken(string $openId, string $appId, string $queryAppId = '')
     {
-        return self::find()->select(['accessToken', 'accessTokenExpire'])
+        return self::find()->select(['accessToken', 'accessTokenExpire', 'refreshToken', 'refreshTokenExpire'])
             ->where(['appId' => $appId])->asArray()->one();
     }
 

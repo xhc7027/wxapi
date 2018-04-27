@@ -85,13 +85,13 @@ class ComponentController extends Controller
             try {
                 //准备签名参数
                 $params = ['appId' => Yii::$app->session->get(MonitorBehavior::APP_ID), 'timestamp' => time()];
-                $sign = (new SecurityUtil($params, Yii::$app->params['signKey']['msgSignKey']))
+                $sign = (new SecurityUtil($params, Yii::$app->params['publicKeys']['weiXinMsg']))
                     ->generateSign();
                 $params['sign'] = $sign;
 
                 //进入具体的消息处理业务
                 $curl = new Curl();
-                $curl->post(Yii::$app->params['serviceDomain']['weiXinMsgDomain'] . '/facade/receive-wx-msg?'
+                $curl->post(Yii::$app->params['domains']['weiXinMsg'] . '/facade/receive-wx-msg?'
                     . http_build_query($params), ['decodeXMLStr' => $decodeXMLStr]);
                 if (!$curl->error) {
                     $response = json_decode($curl->response);
@@ -273,13 +273,13 @@ class ComponentController extends Controller
         //通知回爱豆子
         $params = ['r' => 'supplier/index/index', 'appId' => $model->appId, 'timestamp' => time()];
         try {
-            $sign = (new SecurityUtil($params, Yii::$app->params['signKey']['iDouZiSignKey']))->generateSign();
+            $sign = (new SecurityUtil($params, Yii::$app->params['publicKeys']['idouzi']))->generateSign();
         } catch (InvalidParamException $e) {
             Yii::error($e->getMessage(), __METHOD__);
             return (new RespMsg(['return_code' => RespMsg::FAIL]))->toJsonStr();
         }
 
-        $this->redirect(Yii::$app->params['serviceDomain']['iDouZiDomain']
+        $this->redirect(Yii::$app->params['domains']['idouzi']
             . '/supplier/index/index?' . http_build_query($params) . '&sign=' . $sign);
     }
 

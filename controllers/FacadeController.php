@@ -81,7 +81,7 @@ class FacadeController extends Controller
             $url = 'https://mp.weixin.qq.com/cgi-bin/componentloginpage'
                 . '?component_appid=' . $appId
                 . '&pre_auth_code=' . $respMsg->return_msg['preAuthCode']
-                . '&redirect_uri=' . urlencode(Yii::$app->params['serviceDomain']['weiXinApiDomain']
+                . '&redirect_uri=' . urlencode(Yii::$app->params['domains']['wxapi']
                     . '/component/component-login-redirect?wxid=' . $wxid
                 );
             return $this->redirect($url);
@@ -228,6 +228,30 @@ class FacadeController extends Controller
     }
 
     /**
+     * @param string $id 公众号id或者商家id
+     * @param string $redirectUri 重定向地址
+     * @param string $type
+     * @return \yii\web\Response
+     */
+    public function actionWebSnsApiBaseAuthorize($id, $redirectUri, $type = 'appId')
+    {
+        try{
+            // 选择实际调用的模型
+            $appService = new AppChooseServices($id, 'snsapiBase', $type);
+
+            $msg = Yii::$app->weiXinService->getWebAuthorizeUri(
+                $appService->getAppId(),
+                $redirectUri,
+                'snsapi_base'
+            );
+            return $this->redirect($msg->return_msg['reqCodeUrl']);
+        }catch (\Exception $e) {
+            Yii::error('跳转到网页snsapi_base授权错误:' . $e->getMessage(), __METHOD__);
+            return $this->redirect($redirectUri);
+        }
+    }
+
+    /**
      * @param $appId
      * @param $redirectUri
      * @param string $scope
@@ -265,7 +289,7 @@ class FacadeController extends Controller
                 //没有刷新成功则重新授权
                 $msg = Yii::$app->weiXinService->getWebAuthorizeUri(
                     $appService->getAppId(),
-                    Yii::$app->params['serviceDomain']['weiXinApiDomain'] . '/facade/get-open-id-and-access-token?',
+                    Yii::$app->params['domains']['wxapi'] . '/facade/get-open-id-and-access-token?',
                     $scope
                 );
                 $redirectUrl = $msg->return_msg['reqCodeUrl'];
