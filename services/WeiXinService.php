@@ -72,7 +72,6 @@ class WeiXinService
         $appInfo->componentAppId = $decodeXMLObj->AppId[0];
         $appInfo->infoType = $decodeXMLObj->InfoType[0];
         $appInfo->authorizationCode = $decodeXMLObj->AuthorizationCode[0];
-
         if (self::UNAUTHORIZED != $appInfo->infoType) {
             $appInfo->authorizationCodeExpiredTime = $decodeXMLObj->AuthorizationCodeExpiredTime[0];
             $appInfo->twoUpdatedAt = $decodeXMLObj->CreateTime[0];
@@ -126,6 +125,7 @@ class WeiXinService
                 Yii::error('在对参数:' . json_encode($params) . ',签名时发现错误:' . $e->getMessage(), __METHOD__);
             }
         }
+
     }
 
     /**
