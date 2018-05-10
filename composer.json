@@ -4,6 +4,10 @@
   "homepage": "http://www.idouzi.com/",
   "type": "project",
   "minimum-stability": "stable",
+  "repositories": [{
+    "type": "composer",
+    "url": "http://composer.idouzi.com"
+  }],
   "require": {
     "php": ">=5.4.0",
     "yiisoft/yii2": ">=2.0.5",
@@ -11,6 +15,7 @@
     "yiisoft/yii2-swiftmailer": "*",
     "yiisoft/yii2-jui": "*",
     "curl/curl": "*",
+    "idouzi/commons": "0.0.8.x-dev",
     "tencentyun/php-sdk": "2.0.2"
   },
   "require-dev": {
