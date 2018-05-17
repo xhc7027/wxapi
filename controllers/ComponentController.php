@@ -181,7 +181,7 @@ class ComponentController extends Controller
      * @return yii\web\Response
      */
     public function actionRedirect($state, $code = null, $appid = null)
-    {
+    {   
         if ($code && $appid) {
             $respMsg = Yii::$app->weiXinService->getWebPageAccessToken($appid, $code);
             if ($respMsg->return_code == RespMsg::FAIL) {

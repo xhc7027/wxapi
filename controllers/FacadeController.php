@@ -123,6 +123,7 @@ class FacadeController extends Controller
             $respMsg->return_msg['appId'] = $model->appId;
             $respMsg->return_msg['nickName'] = $model->nickName;
             $respMsg->return_msg['headImg'] = $model->headImg;
+	        $respMsg->return_msg['funcScopeCategory'] = $model->funcScopeCategory;
             $serviceType = $model->serviceTypeInfo;
             if ($serviceType === 0 || $serviceType === 1) {
                 $serviceType = 0;
