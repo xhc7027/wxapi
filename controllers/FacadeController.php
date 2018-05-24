@@ -123,7 +123,7 @@ class FacadeController extends Controller
             $respMsg->return_msg['appId'] = $model->appId;
             $respMsg->return_msg['nickName'] = $model->nickName;
             $respMsg->return_msg['headImg'] = $model->headImg;
-	        $respMsg->return_msg['funcScopeCategory'] = $model->funcScopeCategory;
+            $respMsg->return_msg['funcScopeCategory'] = $model->funcScopeCategory;
             $serviceType = $model->serviceTypeInfo;
             if ($serviceType === 0 || $serviceType === 1) {
                 $serviceType = 0;
@@ -236,7 +236,7 @@ class FacadeController extends Controller
      */
     public function actionWebSnsApiBaseAuthorize($id, $redirectUri, $type = 'appId')
     {
-        try{
+        try {
             // 选择实际调用的模型
             $appService = new AppChooseServices($id, 'snsapiBase', $type);
 
@@ -246,7 +246,7 @@ class FacadeController extends Controller
                 'snsapi_base'
             );
             return $this->redirect($msg->return_msg['reqCodeUrl']);
-        }catch (\Exception $e) {
+        } catch (\Exception $e) {
             Yii::error('跳转到网页snsapi_base授权错误:' . $e->getMessage(), __METHOD__);
             return $this->redirect($redirectUri);
         }
@@ -375,12 +375,12 @@ class FacadeController extends Controller
      * @param string $appId
      * @return string json
      */
-    public function actionGetWebUserInfo($openId, $appId)
+    public function actionGetWebUserInfo($openId, $appId, $type)
     {
         $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         try {
             $queryAppId = $appId;
-            $appModel = new AppChooseServices($appId, 'userManagementAuthorize');
+            $appModel = new AppChooseServices($appId, 'userManagementAuthorize', $type);
             $appId = $appModel->getAppId();
             $accessToken = Yii::$app->weiXinService->getWebAccessTokenByCacheOrDb($openId, $appId, $queryAppId);
             $respMsg = Yii::$app->weiXinService->getWebUserInfo($openId, $accessToken);
