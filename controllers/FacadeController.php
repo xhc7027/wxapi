@@ -375,7 +375,7 @@ class FacadeController extends Controller
      * @param string $appId
      * @return string json
      */
-    public function actionGetWebUserInfo($openId, $appId, $type)
+    public function actionGetWebUserInfo($openId, $appId, $type = 'appId')
     {
         $respMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
         try {
