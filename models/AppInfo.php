@@ -235,7 +235,7 @@ class AppInfo extends ActiveRecord
             $this->verifyTypeInfo = $authorizeInfo->verify_type_info->id;
             $this->userName = isset($authorizeInfo->user_name) ? $authorizeInfo->user_name : null;
             $this->alias = isset($authorizeInfo->alias) ? $authorizeInfo->alias : null;
-            $this->qrcodeUrl = $this->uploadImage($authorizeInfo->qrcode_url);
+            $this->qrcodeUrl = $this->judgeQrcodeUrlExist($authorizeInfo->qrcode_url, $this->userName);
             $this->businessInfoOpenStore = $authorizeInfo->business_info->open_store;
             $this->businessInfoOpenScan = $authorizeInfo->business_info->open_scan;
             $this->businessInfoOpenPay = $authorizeInfo->business_info->open_pay;
@@ -344,5 +344,22 @@ class AppInfo extends ActiveRecord
             $tx_path = ImageService::uploadImage($file_name);
         }
         return $tx_path ? $tx_path : $path;
+    }
+
+    /**
+     *  判断返回二维码是否存在
+     * @param $qrcodeUrl
+     * @param $userName
+     * @return string
+     */
+    public function judgeQrcodeUrlExist($qrcodeUrl, $userName)
+    {
+        if (!$userName) {
+            return '';
+        }
+        if (empty($qrcodeUrl)) {
+            $qrcodeUrl = Yii::$app->params['tencent']['qrcodeUrl'] . $userName;
+        }
+        return $this->uploadImage($qrcodeUrl);
     }
 }
