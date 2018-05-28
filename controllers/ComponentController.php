@@ -270,6 +270,9 @@ class ComponentController extends Controller
 
         //获取授权方的公众号帐号基本信息
         $model->getAuthorizeInfo($componentAccessToken);
+        //同步豆来购更新公众号数据
+        $queueData = ['headImg' => $model->headImg, 'nickName' => $model->nickName, 'verifyTypeInfo' => $model->verifyTypeInfo, 'qrcodeUrl' => $model->qrcodeUrl, 'id' => $model->wxId, 'appId' => $model->appId, 'serviceTypeInfo' => $model->serviceTypeInfo];
+        (new TsMsgSupplierFounder())->insertData(json_encode($queueData));
 
         //通知回爱豆子
         $params = ['r' => 'supplier/index/index', 'appId' => $model->appId, 'timestamp' => time()];
@@ -279,9 +282,6 @@ class ComponentController extends Controller
             Yii::error($e->getMessage(), __METHOD__);
             return (new RespMsg(['return_code' => RespMsg::FAIL]))->toJsonStr();
         }
-        //通知豆来购更新公众号数据
-        $queueData = ['headImg' => $model->headImg, 'nickName' => $model->nickName, 'verifyTypeInfo' => $model->verifyTypeInfo, 'qrcodeUrl' => $model->qrcodeUrl, 'id' => $model->wxId, 'appId' => $model->appId, 'serviceTypeInfo' => $model->serviceTypeInfo];
-        (new TsMsgSupplierFounder())->insertData(json_encode($queueData));
 
         $this->redirect(Yii::$app->params['domains']['idouzi']
             . '/supplier/index/index?' . http_build_query($params) . '&sign=' . $sign);
