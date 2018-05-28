@@ -57,7 +57,7 @@
                 showToolbar(findToolbar());
             },
             error: function (xhr) {
-                toolbarEl.innerHTML = xhr.responseText;
+                toolbarEl.innerText = xhr.responseText;
             }
         });
     }
@@ -139,7 +139,7 @@
 
         toolbarEl.style.display = 'block';
 
-        if (restoreStorageState(CACHE_KEY) == ACTIVE_STATE) {
+        if (restoreStorageState(CACHE_KEY) === ACTIVE_STATE) {
             toolbarEl.classList.add(activeClass);
         }
 
@@ -257,9 +257,9 @@
         }
         requestCounter[0].innerText = requestStack.length;
         var className = 'yii-debug-toolbar__label yii-debug-toolbar__ajax_counter';
-        if (state == 'ok') {
+        if (state === 'ok') {
             className += ' yii-debug-toolbar__label_success';
-        } else if (state == 'error') {
+        } else if (state === 'error') {
             className += ' yii-debug-toolbar__label_error';
         }
         requestCounter[0].className = className;
@@ -294,5 +294,55 @@
         }
         proxied.apply(this, Array.prototype.slice.call(arguments));
     };
+
+    // catch fetch AJAX requests
+    if (window.fetch) {
+        var originalFetch = window.fetch;
+
+        window.fetch = function(input, init) {
+            var method;
+            var url;
+            if (typeof input === "string") {
+                method = (init && init.method) || 'GET';
+                url = input;
+            } else if (window.Request && input instanceof Request) {
+                method = input.method;
+                url = input.url;
+            }
+            var promise = originalFetch(input, init);
+
+            /* prevent logging AJAX calls to static and inline files, like templates */
+            if (url.substr(0, 1) === '/' && !url.match(new RegExp("{{ excluded_ajax_paths }}"))) {
+                var stackElement = {
+                    loading: true,
+                    error: false,
+                    url: url,
+                    method: method,
+                    start: new Date()
+                };
+                requestStack.push(stackElement);
+                promise.then(function(response) {
+                    stackElement.duration = response.headers.get("X-Debug-Duration") || new Date() - stackElement.start;
+                    stackElement.loading = false;
+                    stackElement.statusCode = response.status;
+                    stackElement.error = response.status < 200 || response.status >= 400;
+                    stackElement.profile = response.headers.get("X-Debug-Tag");
+                    stackElement.profilerUrl = response.headers.get("X-Debug-Link");
+                    renderAjaxRequests();
+
+                    return response;
+                }).catch(function(error) {
+                    stackElement.loading = false;
+                    stackElement.error = true;
+                    renderAjaxRequests();
+
+                    throw error;
+                });
+                renderAjaxRequests();
+            }
+
+            return promise;
+        };
+    }
 
 })();

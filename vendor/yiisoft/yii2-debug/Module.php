@@ -144,7 +144,10 @@ class Module extends \yii\base\Module implements BootstrapInterface
     {
         parent::init();
         $this->dataPath = Yii::getAlias($this->dataPath);
-        $this->initPanels();
+
+        if (Yii::$app instanceof \yii\web\Application) {
+            $this->initPanels();
+        }
     }
 
     /**
@@ -172,6 +175,9 @@ class Module extends \yii\base\Module implements BootstrapInterface
             $config['module'] = $this;
             $config['id'] = $id;
             $this->panels[$id] = Yii::createObject($config);
+            if ($this->panels[$id] instanceof Panel && !$this->panels[$id]->isEnabled()) {
+                unset($this->panels[$id]);
+            }
         }
     }
 
@@ -180,7 +186,7 @@ class Module extends \yii\base\Module implements BootstrapInterface
      */
     public function bootstrap($app)
     {
-        $this->logTarget = Yii::$app->getLog()->targets['debug'] = new LogTarget($this);
+        $this->logTarget = $app->getLog()->targets['debug'] = new LogTarget($this);
 
         // delay attaching event handler to the view component after it is fully configured
         $app->on(Application::EVENT_BEFORE_REQUEST, function () use ($app) {
@@ -224,12 +230,14 @@ class Module extends \yii\base\Module implements BootstrapInterface
         if ($this->checkAccess()) {
             $this->resetGlobalSettings();
             return true;
-        } elseif ($action->id === 'toolbar') {
+        }
+
+        if ($action->id === 'toolbar') {
             // Accessing toolbar remotely is normal. Do not throw exception.
             return false;
-        } else {
-            throw new ForbiddenHttpException('You are not allowed to access this page.');
         }
+
+        throw new ForbiddenHttpException('You are not allowed to access this page.');
     }
 
     /**
@@ -241,7 +249,7 @@ class Module extends \yii\base\Module implements BootstrapInterface
      */
     public function setDebugHeaders($event)
     {
-        if (!$this->checkAccess() || !Yii::$app->getRequest()->getIsAjax()) {
+        if (!$this->checkAccess()) {
             return;
         }
         $url = Url::toRoute(['/' . $this->id . '/default/view',
@@ -286,7 +294,7 @@ class Module extends \yii\base\Module implements BootstrapInterface
 
         /* @var $view View */
         $view = $event->sender;
-        echo $view->renderDynamic('return Yii::$app->getModule("debug")->getToolbarHtml();');
+        echo $view->renderDynamic('return Yii::$app->getModule("' . $this->id . '")->getToolbarHtml();');
 
         // echo is used in order to support cases where asset manager is not available
         echo '<style>' . $view->renderPhpFile(__DIR__ . '/assets/toolbar.css') . '</style>';
@@ -328,7 +336,9 @@ class Module extends \yii\base\Module implements BootstrapInterface
             'db' => ['class' => 'yii\debug\panels\DbPanel'],
             'assets' => ['class' => 'yii\debug\panels\AssetPanel'],
             'mail' => ['class' => 'yii\debug\panels\MailPanel'],
-            'timeline' => ['class' => 'yii\debug\panels\TimelinePanel']
+            'timeline' => ['class' => 'yii\debug\panels\TimelinePanel'],
+            'user' => ['class' => 'yii\debug\panels\UserPanel'],
+            'router' => ['class' => 'yii\debug\panels\RouterPanel']
         ];
     }
 

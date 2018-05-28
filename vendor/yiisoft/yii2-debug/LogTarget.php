@@ -50,10 +50,17 @@ class LogTarget extends Target
         $summary = $this->collectSummary();
         $dataFile = "$path/{$this->tag}.data";
         $data = [];
+        $exceptions = [];
         foreach ($this->module->panels as $id => $panel) {
-            $data[$id] = $panel->save();
+            try {
+                $data[$id] = serialize($panel->save());
+            } catch (\Exception $exception) {
+                $exceptions[$id] = new FlattenException($exception);
+            }
         }
         $data['summary'] = $summary;
+        $data['exceptions'] = $exceptions;
+
         file_put_contents($dataFile, serialize($data));
         if ($this->module->fileMode !== null) {
             @chmod($dataFile, $this->module->fileMode);
@@ -119,6 +126,10 @@ class LogTarget extends Target
         }
     }
 
+    /**
+     * Removes obsolete data files
+     * @param array $manifest
+     */
     protected function gc(&$manifest)
     {
         if (count($manifest) > $this->module->historySize + 10) {
@@ -152,7 +163,7 @@ class LogTarget extends Target
             'ajax' => (int) $request->getIsAjax(),
             'method' => $request->getMethod(),
             'ip' => $request->getUserIP(),
-            'time' => time(),
+            'time' => $_SERVER['REQUEST_TIME_FLOAT'],
             'statusCode' => $response->statusCode,
             'sqlCount' => $this->getSqlTotalCount(),
         ];

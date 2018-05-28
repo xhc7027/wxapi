@@ -17,11 +17,10 @@ include:
   - admin
   - api/rest
 paths:
-  log: log
+  output: _output
 settings:
   colors: false
 ```
-
 
 You should also specify the path to the `log` directory, where the reports and logs will be saved.
 
@@ -40,13 +39,6 @@ php codecept bootstrap --namespace frontend
 
 This will bootstrap a new project with the `namespace: frontend` parameter in the `codeception.yml` file.
 Helpers will be in the `frontend\Codeception\Module` namespace and Actor classes will be in the `frontend` namespace.
-The newly generated tests will look like this:
-
-```php
-<?php use frontend\AcceptanceTester;
-$I = new AcceptanceTester($scenario);
-//...
-```
 
 Once each of your applications (bundles) has its own namespace and different Helper or Actor classes,
 you can execute all the tests in a single runner. Run the Codeception tests as usual, using the meta-config we created earlier:
@@ -69,7 +61,6 @@ Where `unit` is the name of suite and the `-c` option specifies the path to the 
 In this example we will assume that there is `frontend/codeception.yml` configuration file
 and that we will execute the unit tests for only that app.
 
-
 ## Extension
 
 Codeception has limited capabilities to extend its core features.
@@ -90,19 +81,17 @@ For instance, you can enable the Logger extension to log the test execution with
 extensions:
     enabled:
         - Codeception\Extension\RunFailed # default extension
-        - Codeception\Extension\Logger # enabled extension
-    config:
-        Codeception\Extension\Logger:
+        - Codeception\Extension\Logger: # enabled extension
             max_files: 5 # logger configuration
 ```
 
 But what are extensions, anyway? Basically speaking, extensions are nothing more than event listeners
 based on the [Symfony Event Dispatcher](http://symfony.com/doc/current/components/event_dispatcher/introduction.html) component.
 
-Here are the events and event classes. The events are listed in the order in which they happen during execution.
-Each event has a corresponding class, which is passed to a listener, and contains specific objects.
-
 ### Events
+
+Here are the events and event classes. The events are listed in the order in which they happen during execution.
+All listed events are available as constants in `Codeception\Events` class.
 
 |    Event             |    When?                                |    Triggered by
 |:--------------------:| --------------------------------------- | --------------------------:
@@ -125,7 +114,7 @@ Each event has a corresponding class, which is passed to a listener, and contain
 
 There may be some confusion between `test.start`/`test.before` and `test.after`/`test.end`.
 The start and end events are triggered by PHPUnit, but the before and after events are triggered by Codeception.
-Thus, when you are using classical PHPUnit tests (extended from `PHPUnit_Framework_TestCase`),
+Thus, when you are using classical PHPUnit tests (extended from `PHPUnit\Framework\TestCase`),
 the before/after events won't be triggered for them. During the `test.before` event you can mark a test
 as skipped or incomplete, which is not possible in `test.start`. You can learn more from
 [Codeception internal event listeners](https://github.com/Codeception/Codeception/tree/master/src/Codeception/Subscriber).
@@ -134,15 +123,19 @@ The extension class itself is inherited from `Codeception\Extension`:
 
 ```php
 <?php
+use \Codeception\Events;
+
 class MyCustomExtension extends \Codeception\Extension
 {
     // list events to listen to
+    // Codeception\Events constants used to set the event
+
     public static $events = array(
-        'suite.after' => 'afterSuite',
-        'test.before' => 'beforeTest',
-        'step.before' => 'beforeStep',
-        'test.fail' => 'testFailed',
-        'result.print.after' => 'print',
+        Events::SUITE_AFTER  => 'afterSuite',
+        Events::SUITE_BEFORE => 'beforeTest',
+        Events::STEP_BEFORE => 'beforeStep',
+        Events::TEST_FAIL => 'testFailed',
+        Events::RESULT_PRINT_AFTER => 'print',
     );
 
     // methods that handle events
@@ -174,11 +167,28 @@ Extensions have some basic methods you can use:
 Once you've implemented a simple extension class, you can require it in `tests/_bootstrap.php`,
 load it with Composer's autoloader defined in `composer.json`, or store the class inside `tests/_support`dir.
 
-You can then enable it in `codeception.yml`:
+You can then enable it in `codeception.yml`
 
 ```yaml
 extensions:
     enabled: [MyCustomExtension]
+```
+
+Extensions can also be enabled per suite inside suite configs (like `acceptance.suite.yml`) and for a specific environment.
+
+To enable extension dynamically, execute the `run` command with `--ext` option.
+Provide a class name as a parameter:
+
+```bash
+codecept run --ext MyCustomExtension
+codecept run --ext "\My\Extension"
+```
+
+If a class is in a `Codeception\Extension` namespace you can skip it and provide only a shortname.
+So Recorder extension can be started like this:
+
+```bash
+codecept run --ext Recorder
 ```
 
 ### Configuring Extension
@@ -216,7 +226,7 @@ extensions:
 If you want to activate the Command globally, because you are using more then one `codeception.yml` file,
 you have to register your command in the `codeception.dist.yml` in the root folder of your project.
 
-Please see a [complete example](https://gist.github.com/sd-tm/37d5f9bca871c72648cb)
+Please see the [complete example](https://github.com/Codeception/Codeception/blob/2.3/tests/data/register_command/examples/MyCustomCommand.php)
 
 ## Group Objects
 
@@ -225,8 +235,12 @@ When a test is added to a group:
 
 ```php
 <?php
-$scenario->group('admin');
-$I = new AcceptanceTester($scenario);
+/**
+ * @group admin
+ */
+public function testAdminCreatingNewBlogPost(\AcceptanceTester $I)
+{
+}
 ```
 
 This test will trigger the following events:
@@ -240,7 +254,6 @@ This test will trigger the following events:
 
 A group object is built to listen for these events. It is useful when an additional setup is required
 for some of your tests. Let's say you want to load fixtures for tests that belong to the `admin` group:
-
 ```php
 <?php
 namespace Group;
@@ -267,6 +280,19 @@ class Admin extends \Codeception\GroupObject
 }
 ```
 
+GroupObjects can also be used to update the module configuration before running a test.
+For instance, for `nocleanup` group we prevent Doctrine2 module from wrapping test into transaction:
+
+```php
+<?php
+    public static $group = 'nocleanup';
+
+    public function _before(\Codeception\Event\TestEvent $e)
+    {
+        $this->getModule('Doctrine2')->_reconfigure(['cleanup' => false]);
+    }
+```
+
 A group class can be created with `php codecept generate:group groupname` command.
 Group classes will be stored in the `tests/_support/Group` directory.
 
@@ -281,11 +307,20 @@ Now the Admin group class will listen for all events of tests that belong to the
 
 ## Custom Reporters
 
-In order to customize the output, you can use Extensions, the way it is done in
-[SimpleOutput Extension](https://github.com/Codeception/Codeception/blob/master/ext%2FSimpleOutput.php).
+Alternative reporters can be implemented as extension.
+There are [DotReporter](http://codeception.com/extensions#DotReporter) and [SimpleReporter](http://codeception.com/extensions#SimpleReporter) extensions included.
+Use them to change output or use them as an example to build your own reporter. They can be easily enabled with `--ext` option
+
+```bash
+codecept run --ext DotReporter
+```
+
+![](https://cloud.githubusercontent.com/assets/220264/26132800/4d23f336-3aab-11e7-81ba-2896a4c623d2.png)
+
+If you want to use it as default reporter enable it in `codeception.yml`.
+
 But what if you need to change the output format of the XML or JSON results triggered with the `--xml` or `--json` options?
-Codeception uses printers from PHPUnit and overrides some of them.
-If you need to customize one of the standard reporters you can override them too.
+Codeception uses PHPUnit printers and overrides them. If you need to customize one of the standard reporters you can override them too.
 If you are thinking on implementing your own reporter you should add a `reporters` section to `codeception.yml`
 and override one of the standard printer classes with one of your own:
 
@@ -293,14 +328,45 @@ and override one of the standard printer classes with one of your own:
 reporters:
     xml: Codeception\PHPUnit\Log\JUnit
     html: Codeception\PHPUnit\ResultPrinter\HTML
-    tap: PHPUnit_Util_Log_TAP
-    json: PHPUnit_Util_Log_JSON
     report: Codeception\PHPUnit\ResultPrinter\Report
 ```
 
-All reporters implement the
+All PHPUnit printers implement the
 [PHPUnit_Framework_TestListener](https://phpunit.de/manual/current/en/extending-phpunit.html#extending-phpunit.PHPUnit_Framework_TestListener)
 interface. It is recommended to read the code of the original reporter before overriding it.
+
+## Installation Templates
+
+Codeception setup can be customized for the needs of your application.
+If you build a distributable application and you have a personalized configuration you can build an
+Installation template which will help your users to start testing on their projects.
+
+Codeception has built-in installation templates for
+
+* [Acceptance tests](https://github.com/Codeception/Codeception/blob/2.3/src/Codeception/Template/Acceptance.php)
+* [Unit tests](https://github.com/Codeception/Codeception/blob/2.3/src/Codeception/Template/Unit.php)
+* [REST API tests](https://github.com/Codeception/Codeception/blob/2.3/src/Codeception/Template/Api.php)
+
+They can be executed with `init` command:
+
+```bash
+codecept init Acceptance
+```
+To init tests in specific folder use `--path` option:
+
+```bash
+codecept init Acceptance --path acceptance_tests
+```
+
+You will be asked several questions and then config files will be generated and all necessary directories will be created.
+Learn from the examples above to build a custom Installation Template. Here are the basic rules you should follow:
+
+* Templates should be inherited from [`Codeception\InitTemplate`](http://codeception.com/docs/reference/InitTemplate) class and implement `setup` method.
+* Template class should be placed in `Codeception\Template` namespace so Codeception could locate them by class name
+* Use methods like `say`, `saySuccess`, `sayWarning`, `sayError`, `ask`, to interact with a user.
+* Use `createDirectoryFor`, `createEmptyDirectory` methods to create directories
+* Use `createHelper`, `createActor` methods to create helpers and actors.
+* Use [Codeception generators](https://github.com/Codeception/Codeception/tree/2.3/src/Codeception/Lib/Generator) to create other support classes.
 
 ## Conclusion
 

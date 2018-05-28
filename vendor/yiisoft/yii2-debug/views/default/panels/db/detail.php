@@ -2,12 +2,20 @@
 /* @var $panel yii\debug\panels\DbPanel */
 /* @var $searchModel yii\debug\models\search\Db */
 /* @var $dataProvider yii\data\ArrayDataProvider */
+/* @var $hasExplain bool */
+/* @var $sumDuplicates int */
 
-use yii\helpers\Html;
 use yii\grid\GridView;
+use yii\helpers\Html;
 use yii\web\View;
 
 echo Html::tag('h1', $panel->getName() . ' Queries');
+
+if ($sumDuplicates === 1) {
+    echo "<p><b>$sumDuplicates</b> duplicated query found.</p>";
+} elseif ($sumDuplicates > 1) {
+    echo "<p><b>$sumDuplicates</b> duplicated queries found.</p>";
+}
 
 echo GridView::widget([
     'dataProvider' => $dataProvider,
@@ -49,9 +57,19 @@ echo GridView::widget([
             'filter' => $panel->getTypes(),
         ],
         [
+            'attribute' => 'duplicate',
+            'label' => 'Duplicated',
+            'options' => [
+                'width' => '5%',
+            ],
+            'headerOptions' => [
+                'class' => 'sort-numerical'
+            ]
+        ],
+        [
             'attribute' => 'query',
             'value' => function ($data) use ($hasExplain, $panel) {
-                $query = Html::encode($data['query']);
+                $query = Html::tag('div', Html::encode($data['query']));
 
                 if (!empty($data['trace'])) {
                     $query .= Html::ul($data['trace'], [
@@ -67,7 +85,7 @@ echo GridView::widget([
 
                     $query .= Html::tag(
                         'div',
-                        Html::a('[+] Explain', (['db-explain', 'seq' => $data['seq'], 'tag' => Yii::$app->controller->summary['tag']])),
+                        Html::a('[+] Explain', ['db-explain', 'seq' => $data['seq'], 'tag' => Yii::$app->controller->summary['tag']]),
                         ['class' => 'db-explain']
                     );
                 }

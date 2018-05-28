@@ -9,9 +9,9 @@ namespace yii\captcha;
 
 use Yii;
 use yii\base\InvalidConfigException;
-use yii\helpers\Url;
 use yii\helpers\Html;
 use yii\helpers\Json;
+use yii\helpers\Url;
 use yii\widgets\InputWidget;
 
 /**
@@ -46,7 +46,7 @@ use yii\widgets\InputWidget;
  * ]);
  * ```
  *
- * You can also use this widget in an [[yii\widgets\ActiveForm|ActiveForm]] using the [[yii\widgets\ActiveField::widget()|widget()]]
+ * You can also use this widget in an [[\yii\widgets\ActiveForm|ActiveForm]] using the [[\yii\widgets\ActiveField::widget()|widget()]]
  * method, for example like this:
  *
  * ```php
@@ -104,11 +104,7 @@ class Captcha extends InputWidget
     public function run()
     {
         $this->registerClientScript();
-        if ($this->hasModel()) {
-            $input = Html::activeTextInput($this->model, $this->attribute, $this->options);
-        } else {
-            $input = Html::textInput($this->name, $this->value, $this->options);
-        }
+        $input = $this->renderInputHtml('text');
         $route = $this->captchaAction;
         if (is_array($route)) {
             $route['v'] = uniqid();

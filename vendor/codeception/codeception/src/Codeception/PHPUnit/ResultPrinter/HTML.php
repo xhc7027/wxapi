@@ -107,14 +107,12 @@ class HTML extends CodeceptionResultPrinter
 
         foreach ($steps as $step) {
             if ($step->getMetaStep()) {
-
                 if (! empty($subStepsRendered[$step->getMetaStep()->getAction()])) {
                     $subStepsBuffer = implode('', $subStepsRendered[$step->getMetaStep()->getAction()]);
                     unset($subStepsRendered[$step->getMetaStep()->getAction()]);
 
                     $stepsBuffer .= $this->renderSubsteps($step->getMetaStep(), $subStepsBuffer);
                 }
-
             } else {
                 $stepsBuffer .= $this->renderStep($step);
             }
@@ -134,6 +132,7 @@ class HTML extends CodeceptionResultPrinter
                 $failTemplate->setVar(['fail' => nl2br($failure)]);
                 $failures .= $failTemplate->render() . PHP_EOL;
             }
+            $this->failures[$name] = [];
         }
 
         $png = '';
@@ -141,19 +140,19 @@ class HTML extends CodeceptionResultPrinter
         if ($test instanceof TestInterface) {
             $reports = $test->getMetadata()->getReports();
             if (isset($reports['png'])) {
-                $localPath = PathResolver::getRelativeDir($reports['png'], codecept_data_dir());
+                $localPath = PathResolver::getRelativeDir($reports['png'], codecept_output_dir());
                 $png = "<tr><td class='error'><div class='screenshot'><img src='$localPath' alt='failure screenshot'></div></td></tr>";
             }
             if (isset($reports['html'])) {
-                $localPath = PathResolver::getRelativeDir($reports['html'], codecept_data_dir());
+                $localPath = PathResolver::getRelativeDir($reports['html'], codecept_output_dir());
                 $html = "<tr><td class='error'>See <a href='$localPath' target='_blank'>HTML snapshot</a> of a failed page</td></tr>";
             }
-
         }
 
         $toggle = $stepsBuffer ? '<span class="toggle">+</span>' : '';
 
-        $testString = preg_replace('~^([\s\w\\\]+):\s~', '<span class="quiet">$1 &raquo;</span> ', ucfirst(Descriptor::getTestAsString($test)));
+        $testString = htmlspecialchars(ucfirst(Descriptor::getTestAsString($test)));
+        $testString = preg_replace('~^([\s\w\\\]+):\s~', '<span class="quiet">$1 &raquo;</span> ', $testString);
 
         $scenarioTemplate->setVar(
             [
@@ -253,6 +252,23 @@ class HTML extends CodeceptionResultPrinter
         $this->failures[Descriptor::getTestSignature($test)][] = $this->cleanMessage($e);
         parent::addFailure($test, $e, $time);
     }
+    
+    /**
+     * Starts test.
+     *
+     * @param \PHPUnit_Framework_Test $test
+     */
+    public function startTest(\PHPUnit_Framework_Test $test)
+    {
+        $name = Descriptor::getTestSignature($test);
+        if (isset($this->failures[$name])) {
+            // test failed in before hook
+            return;
+        }
+
+        // start test and mark initialize as passed
+        parent::startTest($test);
+    }
 
 
     /**
@@ -274,7 +290,7 @@ class HTML extends CodeceptionResultPrinter
     protected function renderSubsteps(Meta $metaStep, $substepsBuffer)
     {
         $metaTemplate = new \Text_Template($this->templatePath . 'substeps.html');
-        $metaTemplate->setVar(['metaStep' => $metaStep, 'error' => $metaStep->hasFailed() ? 'failedStep' : '', 'steps' => $substepsBuffer, 'id' => uniqid()]);
+        $metaTemplate->setVar(['metaStep' => $metaStep->getHtml(), 'error' => $metaStep->hasFailed() ? 'failedStep' : '', 'steps' => $substepsBuffer, 'id' => uniqid()]);
         return $metaTemplate->render();
     }
 

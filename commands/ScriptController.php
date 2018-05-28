@@ -8,6 +8,8 @@ use app\services\migration\Detector;
 use yii;
 use yii\console\Controller;
 use yii\db\Query;
+use app\models\TsMsgSupplierFounder;
+use Idouzi\Commons\QCloud\TencentQueueUtil;
 
 /**
  * 数据同步脚本控制器
@@ -97,5 +99,53 @@ class ScriptController extends Controller
         }
 
         echo "遍历数据{$iterateCounter}条，保存数据{$saveCounter}条。\n";
+    }
+
+    /**
+     * 不断发送公众号换绑事务消息
+     */
+    public function actionTsMsgSupplierFounder()
+    {
+        $queueName = Yii::$app->params['topic']['topicDlgFounderTsMsg'];
+        try {
+            $tsMsgData = TsMsgSupplierFounder::selectData();
+            if (!$tsMsgData) return;
+            $queueData = [];//发送到消息队列的数据
+            foreach ($tsMsgData as $k => $v) {
+                $Reconstruction = [];
+                $Reconstruction = json_decode($v['data'], true);
+                $Reconstruction['tsId'] = $v['tsId'];
+                $queueData[] = json_encode($Reconstruction);
+            }
+            TencentQueueUtil::batchpublishMessage($queueName, $queueData);
+        } catch (\Exception $e) {
+            Yii::warning('不断发送公众号换绑事务消息失败' . $e->getMessage(), __METHOD__);
+        }
+    }
+
+    /**
+     * 删除公众号换绑消息
+     */
+    public function actionDeleteSupplierFounderTsMsg()
+    {
+        $queueName = Yii::$app->params['queueNames']['queueWxApiDeleteFounderTsMsg'];
+        try {
+            $queues = TencentQueueUtil::receiveMessage($queueName);
+            if (!$queues) {
+                return;
+            }
+            if (!isset($queues->code) || $queues->code !== 0) {
+                TencentQueueUtil::deleteMessage($queueName, $queues->receiptHandle);
+                return;
+            }
+            $tsId = json_decode($queues->msgBody, true);
+
+            TsMsgSupplierFounder::deteleData($tsId);
+            TencentQueueUtil::deleteMessage($queueName, $queues->receiptHandle);
+
+        } catch (\Exception $e) {
+            Yii::warning('删除公众号换绑消息' . $e->getMessage(), __METHOD__);
+        }
+
     }
 }

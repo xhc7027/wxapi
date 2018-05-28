@@ -1,32 +1,42 @@
 <?php
 /* @var $panel yii\debug\panels\TimelinePanel */
-/* @var $searchModel \yii\debug\models\search\Timeline */
-/* @var $dataProvider \yii\debug\components\TimelineDataProvider */
+/* @var $searchModel \yii\debug\models\timeline\Search */
+/* @var $dataProvider \yii\debug\models\timeline\DataProvider */
 
 use yii\helpers\Html;
 use yii\widgets\ActiveForm;
 use yii\widgets\Pjax;
 use yii\debug\TimelineAsset;
+use yii\helpers\StringHelper;
 
 TimelineAsset::register($this);
+
 ?>
 <h1 class="debug-timeline-panel__title">Timeline - <?= number_format($panel->getDuration()); ?> ms</h1>
 
-<?php $form = ActiveForm::begin(['method' => 'get', 'action' => $panel->getUrl(), 'id' => 'debug-timeline-search', 'enableClientScript' => false, 'options' => ['class' => 'debug-timeline-panel__search']]); ?>
+<?php $form = ActiveForm::begin([
+    'method' => 'get',
+    'action' => $panel->getUrl(),
+    'id' => 'debug-timeline-search',
+    'enableClientScript' => false,
+    'options' => [
+        'class' => 'debug-timeline-panel__search form-inline',
+    ],
+]) ?>
 <div class="duration">
     <?= Html::activeLabel($searchModel, 'duration') ?>
-    <?= Html::activeInput('number', $searchModel, 'duration', ['min' => 0, 'size' => '3']); ?>
+    <?= Html::activeInput('number', $searchModel, 'duration', ['min' => 0, 'size' => '3', 'class'=>'form-control']); ?>
     <span>ms</span>
 </div>
 <div class="category">
     <?= Html::activeLabel($searchModel, 'category') ?>
-    <?= Html::activeTextInput($searchModel, 'category'); ?>
+    <?= Html::activeTextInput($searchModel, 'category', ['class'=>'form-control']); ?>
 </div>
 <?php ActiveForm::end(); ?>
 <div class="debug-timeline-panel">
     <div class="debug-timeline-panel__header">
         <?php foreach ($dataProvider->getRulers() as $ms => $left): ?>
-            <span class="ruler" style="margin-left: <?= $left ?>%"><b><?= sprintf('%.1f ms', $ms) ?></b></span>
+            <span class="ruler" style="margin-left: <?= StringHelper::normalizeNumber($left) ?>%"><b><?= sprintf('%.1f ms', $ms) ?></b></span>
         <?php endforeach; ?>
         <div class="control">
             <button type="button" class="inline btn-link">
@@ -41,21 +51,38 @@ TimelineAsset::register($this);
             </button>
         </div>
     </div>
+    <?php if(!Yii::$app->request->isPjax && $panel->svg->hasPoints()):?>
+    <div class="debug-timeline-panel__memory" style="height: <?= StringHelper::normalizeNumber($panel->svg->y) ?>px;">
+        <div class="scale" style="bottom: 100%;"><?= sprintf('%.2f MB', $panel->memory / 1048576) ?></div>
+        <?=$panel->svg;?>
+    </div>
+    <?php endif;?>
     <div class="debug-timeline-panel__items">
         <?php Pjax::begin(['formSelector' => '#debug-timeline-search', 'linkSelector' => false, 'options' => ['id' => 'debug-timeline-panel__pjax']]); ?>
         <?php if (($models = $dataProvider->models) === []): ?>
             <div class="debug-timeline-panel__item empty">
-                <span><?= Yii::t('yii', 'No results found.'); ?></span>
+                <span>No results found.</span>
             </div>
         <?php else: ?>
             <?php foreach ($models as $key => $model): ?>
+                <?php
+                $memory = null;
+                if (!empty($model['memory'])) {
+                    $diff = null;
+                    if ($model['memoryDiff'] !== 0) {
+                        $diff = ' title="' . (($model['memoryDiff'] > 0) ? '+' : '-') . sprintf('%.3f', $model['memoryDiff'] / 1048576) . '""';
+                    }
+                    $memory = ' / <span class="memory"' . $diff . '>' . sprintf('%.2f', $model['memory'] / 1048576) . ' MB</span>';
+                }
+                ?>
                 <div class="debug-timeline-panel__item">
                     <?php if ($model['child']): ?>
-                        <span class="ruler ruler-start" style="height: <?= $model['child'] * 21; ?>px; margin-left: <?= $model['css']['left']; ?>%"></span>
+                        <span class="ruler ruler-start" style="height: <?= StringHelper::normalizeNumber($model['child'] * 21) ?>px; margin-left: <?= StringHelper::normalizeNumber( $model['css']['left']) ?>%"></span>
                     <?php endif; ?>
-                    <?= Html::tag('a', '<span class="category">' . Html::encode($model['category']) . ' <span>' . sprintf('%.1f ms', $model['duration']) . '</span></span>', ['tabindex'=>$key+1,'title' => $model['info'], 'class' => $dataProvider->getCssClass($model), 'style' => 'background-color: '.$model['css']['color'].';margin-left:' . $model['css']['left'] . '%;width:' . $model['css']['width'] . '%']); ?>
+                    <?= Html::tag('a', '
+                        <span class="category">' . Html::encode($model['category']) . ' <span>' . sprintf('%.1f ms', $model['duration']) . '</span>'.$memory.'</span>', ['tabindex'=>$key+1,'title' => $model['info'], 'class' => $dataProvider->getCssClass($model), 'style' => 'background-color: '.$model['css']['color'].';margin-left:' . StringHelper::normalizeNumber($model['css']['left'] . '%;width:' . $model['css']['width']) . '%', 'data-memory'=>$dataProvider->getMemory($model)]); ?>
                     <?php if ($model['child']): ?>
-                        <span class="ruler ruler-end" style="height: <?= $model['child'] * 21; ?>px; margin-left: <?= $model['css']['left'] + $model['css']['width'] . '%'; ?>"></span>
+                        <span class="ruler ruler-end" style="height: <?= StringHelper::normalizeNumber($model['child'] * 21) ?>px; margin-left: <?= StringHelper::normalizeNumber($model['css']['left'] + $model['css']['width']) . '%'; ?>"></span>
                     <?php endif; ?>
                 </div>
             <?php endforeach; ?>

@@ -7,44 +7,29 @@ use Codeception\Lib\Connector\Laravel5 as LaravelConnector;
 use Codeception\Lib\Framework;
 use Codeception\Lib\Interfaces\ActiveRecord;
 use Codeception\Lib\Interfaces\PartedModule;
+use Codeception\Lib\Shared\LaravelCommon;
 use Codeception\Lib\ModuleContainer;
 use Codeception\Subscriber\ErrorHandler;
 use Codeception\Util\ReflectionHelper;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
+use Illuminate\Support\Collection;
 
 /**
  *
- * This module allows you to run functional tests for Laravel 5.
+ * This module allows you to run functional tests for Laravel 5.1+
  * It should **not** be used for acceptance tests.
  * See the Acceptance tests section below for more details.
  *
- * As of Codeception 2.2 this module only works for Laravel 5.1 and later releases.
- * If you want to test a Laravel 5.0 application you have to use Codeception 2.1.
- * You can also upgrade your Laravel application to 5.1, for more details check the Laravel Upgrade Guide
- * at <https://laravel.com/docs/master/upgrade>.
- *
  * ## Demo project
- * <https://github.com/janhenkgerritsen/codeception-laravel5-sample>
- *
- * ## Status
- *
- * * Maintainer: **Jan-Henk Gerritsen**
- * * Stability: **stable**
- *
- * ## Example
- *
- *     modules:
- *         enabled:
- *             - Laravel5:
- *                 environment_file: .env.testing
+ * <https://github.com/codeception/codeception-laravel5-sample>
  *
  * ## Config
  *
  * * cleanup: `boolean`, default `true` - all database queries will be run in a transaction,
  *   which will be rolled back at the end of each test.
  * * run_database_migrations: `boolean`, default `false` - run database migrations before each test.
- * * database_migrations_path: `string`, default `` - path to the database migrations, relative to the root of the application.
+ * * database_migrations_path: `string`, default `null` - path to the database migrations, relative to the root of the application.
  * * run_database_seeder: `boolean`, default `false` - run database seeder before each test.
  * * database_seeder_class: `string`, default `` - database seeder class name.
  * * environment_file: `string`, default `.env` - the environment file to load for the tests.
@@ -57,6 +42,27 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
  * * disable_events: `boolean`, default `false` - disable events (does not disable model events).
  * * disable_model_events: `boolean`, default `false` - disable model events.
  * * url: `string`, default `` - the application URL.
+ *
+ * ### Example #1 (`functional.suite.yml`)
+ *
+ * Enabling module:
+ *
+ * ```yml
+ * modules:
+ *     enabled:
+ *         - Laravel5
+ * ```
+ *
+ * ### Example #2 (`functional.suite.yml`)
+ *
+ * Enabling module with custom .env file
+ *
+ * ```yml
+ * modules:
+ *     enabled:
+ *         - Laravel5:
+ *             environment_file: .env.testing
+ * ```
  *
  * ## API
  *
@@ -76,20 +82,25 @@ use Illuminate\Database\Eloquent\Model as EloquentModel;
  * ## Acceptance tests
  *
  * You should not use this module for acceptance tests.
- * If you want to use Laravel functionality with your acceptance tests,
- * for example to do test setup, you can initialize the Laravel functionality
- * by adding the following lines of code to the `_bootstrap.php` file of your test suite:
+ * If you want to use Eloquent within your acceptance tests (paired with WebDriver) enable only
+ * ORM part of this module:
  *
- *     require 'bootstrap/autoload.php';
- *     $app = require 'bootstrap/app.php';
- *     $app->loadEnvironmentFrom('.env.testing');
- *     $app->instance('request', new \Illuminate\Http\Request);
- *     $app->make('Illuminate\Contracts\Http\Kernel')->bootstrap();
+ * ### Example (`acceptance.suite.yml`)
  *
- *
+ * ```yaml
+ * modules:
+ *     enabled:
+ *         - WebDriver:
+ *             browser: chrome
+ *             url: http://127.0.0.1:8000
+ *         - Laravel5:
+ *             part: ORM
+ *             environment_file: .env.testing
+ * ```
  */
 class Laravel5 extends Framework implements ActiveRecord, PartedModule
 {
+    use LaravelCommon;
 
     /**
      * @var \Illuminate\Foundation\Application
@@ -113,7 +124,7 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
             [
                 'cleanup' => true,
                 'run_database_migrations' => false,
-                'database_migrations_path' => '',
+                'database_migrations_path' => null,
                 'run_database_seeder' => false,
                 'database_seeder_class' => '',
                 'environment_file' => '.env',
@@ -165,17 +176,18 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
     {
         $this->client = new LaravelConnector($this);
 
-        // Database migrations and seeder should run before database cleanup transaction starts
+        // Database migrations should run before database cleanup transaction starts
         if ($this->config['run_database_migrations']) {
             $this->callArtisan('migrate', ['--path' => $this->config['database_migrations_path']]);
         }
 
-        if ($this->config['run_database_seeder']) {
-            $this->callArtisan('db:seed', ['--class' => $this->config['database_seeder_class']]);
+        if ($this->applicationUsesDatabase() && $this->config['cleanup']) {
+            $this->app['db']->beginTransaction();
+            $this->debugSection('Database', 'Transaction started');
         }
 
-        if (isset($this->app['db']) && $this->config['cleanup']) {
-            $this->app['db']->beginTransaction();
+        if ($this->config['run_database_seeder']) {
+            $this->callArtisan('db:seed', ['--class' => $this->config['database_seeder_class']]);
         }
     }
 
@@ -186,14 +198,35 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
      */
     public function _after(\Codeception\TestInterface $test)
     {
-        if (isset($this->app['db']) && $this->config['cleanup']) {
-            $this->app['db']->rollback();
-        }
+        if ($this->applicationUsesDatabase()) {
+            $db = $this->app['db'];
 
-        // disconnect from DB to prevent "Too many connections" issue
-        if (isset($this->app['db'])) {
-            $this->app['db']->disconnect();
+            if ($db instanceof \Illuminate\Database\DatabaseManager) {
+                if ($this->config['cleanup']) {
+                    $db->rollback();
+                    $this->debugSection('Database', 'Transaction cancelled; all changes reverted.');
+                }
+
+                /**
+                 * Close all DB connections in order to prevent "Too many connections" issue
+                 *
+                 * @var \Illuminate\Database\Connection $connection
+                 */
+                foreach ($db->getConnections() as $connection) {
+                    $connection->disconnect();
+                }
+            }
         }
+    }
+
+    /**
+     * Does the application use the database?
+     *
+     * @return bool
+     */
+    private function applicationUsesDatabase()
+    {
+        return ! empty($this->app['config']['database.default']);
     }
 
     /**
@@ -220,18 +253,16 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
     protected function registerAutoloaders()
     {
         require $this->config['project_dir'] . $this->config['vendor_dir'] . DIRECTORY_SEPARATOR . 'autoload.php';
-
-        \Illuminate\Support\ClassLoader::register();
     }
 
     /**
      * Revert back to the Codeception error handler,
-     * becauses Laravel registers it's own error handler.
+     * because Laravel registers it's own error handler.
      */
     protected function revertErrorHandler()
     {
         $handler = new ErrorHandler();
-        set_error_handler(array($handler, 'errorHandler'));
+        set_error_handler([$handler, 'errorHandler']);
     }
 
     /**
@@ -531,9 +562,9 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
 
         if ($rootNamespace && !(strpos($action, '\\') === 0)) {
             return $rootNamespace . '\\' . $action;
-        } else {
-            return trim($action, '\\');
         }
+
+        return trim($action, '\\');
     }
 
     /**
@@ -810,83 +841,6 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
         return $this->app[$class];
     }
 
-    /**
-     * Add a binding to the Laravel service container.
-     * (https://laravel.com/docs/master/container)
-     *
-     * ``` php
-     * <?php
-     * $I->haveBinding('My\Interface', 'My\Implementation');
-     * ?>
-     * ```
-     *
-     * @param $abstract
-     * @param $concrete
-     */
-    public function haveBinding($abstract, $concrete)
-    {
-        $this->client->haveBinding($abstract, $concrete);
-    }
-
-    /**
-     * Add a singleton binding to the Laravel service container.
-     * (https://laravel.com/docs/master/container)
-     *
-     * ``` php
-     * <?php
-     * $I->haveSingleton('My\Interface', 'My\Singleton');
-     * ?>
-     * ```
-     *
-     * @param $abstract
-     * @param $concrete
-     */
-    public function haveSingleton($abstract, $concrete)
-    {
-        $this->client->haveBinding($abstract, $concrete, true);
-    }
-
-    /**
-     * Add a contextual binding to the Laravel service container.
-     * (https://laravel.com/docs/master/container)
-     *
-     * ``` php
-     * <?php
-     * $I->haveContextualBinding('My\Class', '$variable', 'value');
-     *
-     * // This is similar to the following in your Laravel application
-     * $app->when('My\Class')
-     *     ->needs('$variable')
-     *     ->give('value');
-     * ?>
-     * ```
-     *
-     * @param $concrete
-     * @param $abstract
-     * @param $implementation
-     */
-    public function haveContextualBinding($concrete, $abstract, $implementation)
-    {
-        $this->client->haveContextualBinding($concrete, $abstract, $implementation);
-    }
-
-    /**
-     * Add an instance binding to the Laravel service container.
-     * (https://laravel.com/docs/master/container)
-     *
-     * ``` php
-     * <?php
-     * $I->haveInstance('My\Class', new My\Class());
-     * ?>
-     * ```
-     *
-     * @param $abstract
-     * @param $instance
-     */
-    public function haveInstance($abstract, $instance)
-    {
-        $this->client->haveInstance($abstract, $instance);
-    }
 
     /**
      * Inserts record into the database.
@@ -1013,6 +967,58 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
     }
 
     /**
+     * Checks that number of given records were found in database.
+     * You can pass the name of a database table or the class name of an Eloquent model as the first argument.
+     *
+     * ``` php
+     * <?php
+     * $I->seeNumRecords(1, 'users', array('name' => 'davert'));
+     * $I->seeNumRecords(1, 'App\User', array('name' => 'davert'));
+     * ?>
+     * ```
+     *
+     * @param integer $expectedNum
+     * @param string $table
+     * @param array $attributes
+     * @part orm
+     */
+    public function seeNumRecords($expectedNum, $table, $attributes = [])
+    {
+        if (class_exists($table)) {
+            $currentNum = $this->countModels($table, $attributes);
+            if ($currentNum != $expectedNum) {
+                $this->fail("The number of found $table ($currentNum) does not match expected number $expectedNum with " . json_encode($attributes));
+            }
+        } else {
+            $currentNum = $this->countRecords($table, $attributes);
+            if ($currentNum != $expectedNum) {
+                $this->fail("The number of found records ($currentNum) does not match expected number $expectedNum in table $table with " . json_encode($attributes));
+            }
+        }
+    }
+
+    /**
+     * Retrieves number of records from database
+     * You can pass the name of a database table or the class name of an Eloquent model as the first argument.
+     *
+     * ``` php
+     * <?php
+     * $I->grabNumRecords('users', array('name' => 'davert'));
+     * $I->grabNumRecords('App\User', array('name' => 'davert'));
+     * ?>
+     * ```
+     *
+     * @param string $table
+     * @param array $attributes
+     * @return integer
+     * @part orm
+     */
+    public function grabNumRecords($table, $attributes = [])
+    {
+        return class_exists($table)? $this->countModels($table, $attributes) : $this->countRecords($table, $attributes);
+    }
+
+    /**
      * @param string $modelClass
      * @param array $attributes
      *
@@ -1020,13 +1026,7 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
      */
     protected function findModel($modelClass, $attributes = [])
     {
-        $model = new $modelClass;
-
-        if (!$model instanceof EloquentModel) {
-            throw new \RuntimeException("Class $modelClass is not an Eloquent model");
-        }
-
-        $query = $model->newQuery();
+        $query = $this->getQueryBuilderFromModel($modelClass);
         foreach ($attributes as $key => $value) {
             $query->where($key, $value);
         }
@@ -1041,12 +1041,68 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
      */
     protected function findRecord($table, $attributes = [])
     {
-        $query = $this->app['db']->table($table);
+        $query = $this->getQueryBuilderFromTable($table);
         foreach ($attributes as $key => $value) {
             $query->where($key, $value);
         }
 
         return (array) $query->first();
+    }
+
+    /**
+     * @param string $modelClass
+     * @param array $attributes
+     * @return integer
+     */
+    protected function countModels($modelClass, $attributes = [])
+    {
+        $query = $this->getQueryBuilderFromModel($modelClass);
+        foreach ($attributes as $key => $value) {
+            $query->where($key, $value);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * @param string $table
+     * @param array $attributes
+     * @return integer
+     */
+    protected function countRecords($table, $attributes = [])
+    {
+        $query = $this->getQueryBuilderFromTable($table);
+        foreach ($attributes as $key => $value) {
+            $query->where($key, $value);
+        }
+
+        return $query->count();
+    }
+
+    /**
+     * @param string $modelClass
+     *
+     * @return EloquentModel
+     */
+    protected function getQueryBuilderFromModel($modelClass)
+    {
+        $model = new $modelClass;
+
+        if (!$model instanceof EloquentModel) {
+            throw new \RuntimeException("Class $modelClass is not an Eloquent model");
+        }
+
+        return $model->newQuery();
+    }
+
+    /**
+     * @param string $table
+     *
+     * @return EloquentModel
+     */
+    protected function getQueryBuilderFromTable($table)
+    {
+        return $this->app['db']->table($table);
     }
 
     /**
@@ -1071,7 +1127,14 @@ class Laravel5 extends Framework implements ActiveRecord, PartedModule
     public function have($model, $attributes = [], $name = 'default')
     {
         try {
-            return $this->modelFactory($model, $name)->create($attributes);
+            $result = $this->modelFactory($model, $name)->create($attributes);
+
+            // Since Laravel 5.4 the model factory returns a collection instead of a single object
+            if ($result instanceof Collection) {
+                $result = $result[0];
+            }
+
+            return $result;
         } catch (\Exception $e) {
             $this->fail("Could not create model: \n\n" . get_class($e) . "\n\n" . $e->getMessage());
         }
