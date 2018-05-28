@@ -108,8 +108,7 @@ class ScriptController extends Controller
     {
         $queueName = Yii::$app->params['queueNames']['queueMallSupplierFounderTsMsg'];
         try {
-            $sql = 'SELECT `tsId`,`data` FROM `ts_msg_supplier_founder` limit 5';
-            $tsMsgData = TsMsgSupplierFounder::findBySql($sql)->asArray()->all();
+            $tsMsgData = TsMsgSupplierFounder::selectData();
             if (!$tsMsgData) return;
             $queueData = [];//发送到消息队列的数据
             foreach ($tsMsgData as $k => $v) {

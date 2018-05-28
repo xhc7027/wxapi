@@ -69,5 +69,15 @@ class TsMsgSupplierFounder extends ActiveRecord
         return true;
     }
 
+    /**
+     * 查找公众号换绑的数据
+     * @return array
+     * @throws ModelValidateException
+     */
+    public function selectData()
+    {
+        $sql = 'SELECT `tsId`,`data` FROM `ts_msg_supplier_founder` limit 5';
+        return  self::findBySql($sql)->asArray()->all();
+    }
 
 }
