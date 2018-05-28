@@ -31,6 +31,9 @@ class MongoDbLegacyTest extends \PHPUnit_Framework_TestCase
         if (!class_exists('Mongo')) {
             $this->markTestSkipped('Mongo is not installed');
         }
+        if (!class_exists('MongoDB\Client')) {
+            $this->markTestSkipped('MongoDb\Client is not installed');
+        }
 
         $mongo = new \MongoClient();
 
@@ -69,7 +72,7 @@ class MongoDbLegacyTest extends \PHPUnit_Framework_TestCase
     public function testGrabFromCollection()
     {
         $user = $this->module->grabFromCollection('users', array('id' => 1));
-        $this->assertTrue(isset($user['email']));
+        $this->assertArrayHasKey('email', $user);
         $this->assertEquals('miles@davis.com', $user['email']);
     }
 

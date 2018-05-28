@@ -24,12 +24,27 @@ class Descriptor
         return $testCase->toString();
     }
 
-    public static function getTestAsString(\PHPUnit_Framework_SelfDescribing $testCase)
+    /**
+     * Provides a test name which is unique for individual iterations of tests using examples
+     *
+     * @param \PHPUnit_Framework_SelfDescribing $testCase
+     * @return string
+     */
+    public static function getTestSignatureUnique(\PHPUnit_Framework_SelfDescribing $testCase)
     {
-        if ($testCase instanceof Descriptive) {
-            return $testCase->toString();
+        $example = null;
+
+        if (is_callable([$testCase, 'getMetadata'])
+            && $example = $testCase->getMetadata()->getCurrent('example')
+        ) {
+            $example = ':' . substr(sha1(json_encode($example)), 0, 7);
         }
 
+        return self::getTestSignature($testCase) . $example;
+    }
+
+    public static function getTestAsString(\PHPUnit_Framework_SelfDescribing $testCase)
+    {
         if ($testCase instanceof \PHPUnit_Framework_TestCase) {
             $text = $testCase->getName();
             $text = preg_replace('/([A-Z]+)([A-Z][a-z])/', '\\1 \\2', $text);
@@ -39,6 +54,7 @@ class Descriptor
             $text = str_replace(['::', 'with data set'], [':', '|'], $text);
             return ReflectionHelper::getClassShortName($testCase) . ': ' . $text;
         }
+
         return $testCase->toString();
     }
 
@@ -51,7 +67,7 @@ class Descriptor
     public static function getTestFileName(\PHPUnit_Framework_SelfDescribing $testCase)
     {
         if ($testCase instanceof Descriptive) {
-            return $testCase->getFileName();
+            return codecept_relative_path(realpath($testCase->getFileName()));
         }
         return (new \ReflectionClass($testCase))->getFileName();
     }

@@ -16,8 +16,23 @@ you should use a special test database for testing. **Do not ever run tests on d
 ## Db
 
 Codeception has a `Db` module, which takes on most of the tasks of database interaction.
-By default it will try to repopulate the database from a dump and clean it up after each test.
-This module expects a database dump in SQL format. It's already prepared for configuration in `codeception.yml`:
+
+```yaml
+modules:
+    config:
+        Db:
+            dsn: 'PDO DSN HERE'
+            user: 'root'
+            password:
+```
+
+<div class="alert alert-notice">
+Use <a href="http://codeception.com/docs/06-ModulesAndHelpers#Dynamic-Configuration-With-Params">module parameters</a>
+to set the database credentials from environment variables or from application configuration files.
+</div>
+
+Db module can cleanup database between tests by loading a database dump. This can be done by parsing SQL file and
+executing its commands using current connection
 
 ```yaml
 modules:
@@ -27,17 +42,29 @@ modules:
             user: 'root'
             password:
             dump: tests/_data/your-dump-name.sql
+            cleanup: true # reload dump between tests
+            populate: true # load dump before all tests
+
 ```
 
+ Alternatively an external tool (like mysql client, or pg_restore) can be used. This approach is faster and won't produce parsing errors while loading a dump.
+ Use `populator` config option to specify the command. For MySQL it can look like this:
 
-<div class="alert alert-notice">
-Use <a href="http://codeception.com/docs/06-ModulesAndHelpers#Dynamic-Configuration-With-Params">module parameters</a>
-to set the database credentials from environment variables or from application configuration files.
-</div>
+```yaml
+ modules:
+    enabled:
+       - Db:
+          dsn: 'mysql:host=localhost;dbname=testdb'
+          user: 'root'
+          password: ''
+          cleanup: true # run populator before each test
+          populate: true # run populator before all test
+          populator: 'mysql -u $user $dbname < tests/_data/dump.sql'
+```
 
-After you enable this module in your test suite, it will automatically populate the database from a dump
-and repopulate it on each test run. These settings can be changed through the `populate` and `cleanup` options,
-which may be set to `false`.
+See the [Db module reference](http://codeception.com/docs/modules/Db#SQL-data-dump) for more examples.
+
+To ensure database dump is loaded before all tests add `populate: true`. To clean current database and reload dump between tests use `cleanup: true`.
 
 <div class="alert alert-notice">
 A full database clean-up can be painfully slow if you use large database dumps. It is recommended to do more data testing
@@ -169,7 +196,6 @@ modules:
         - Db
 ```
 
-
 ### DataMapper
 
 Doctrine is also a popular ORM, unlike some others it implements the DataMapper pattern and is not bound to any framework.
@@ -192,7 +218,6 @@ modules:
             depends: ZF2
 ```
 
-
 If no framework is used with Doctrine you should provide the `connection_callback` option
 with a valid callback to a function which returns an `EntityManager` instance.
 
@@ -200,6 +225,7 @@ Doctrine2 also provides methods to create and check data:
 
 * `haveInRepository`
 * `grabFromRepository`
+* `grabEntitiesFromRepository`
 * `seeInRepository`
 * `dontSeeInRepository`
 

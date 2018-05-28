@@ -6,7 +6,6 @@ use Codeception\Exception\TestParseException;
 use Codeception\Scenario;
 use Codeception\Step;
 use Codeception\Test\Metadata;
-use Codeception\Util\Annotation;
 
 class Parser
 {
@@ -50,25 +49,7 @@ class Parser
 
     public function parseScenarioOptions($code)
     {
-        $comments = $this->matchComments($code);
-        $this->attachMetadata($comments);
-    }
-
-    public function attachMetadata($comments)
-    {
-        $this->metadata->setGroups(Annotation::fetchAllFromComment('group', $comments));
-        $this->metadata->setEnv(Annotation::fetchAllFromComment('env', $comments));
-        $this->metadata->setDependencies(Annotation::fetchAllFromComment('depends', $comments));
-        $this->metadata->setSkip($this->firstOrNull(Annotation::fetchAllFromComment('skip', $comments)));
-        $this->metadata->setIncomplete($this->firstOrNull(Annotation::fetchAllFromComment('incomplete', $comments)));
-    }
-
-    private function firstOrNull($array)
-    {
-        if (empty($array)) {
-            return null;
-        }
-        return (string)$array[0];
+        $this->metadata->setParamsFromAnnotations($this->matchComments($code));
     }
 
     public function parseSteps($code)
@@ -126,11 +107,11 @@ class Parser
         if (empty($config['settings']['lint'])) { // lint disabled in config
             return;
         }
-        @exec("php -l " . escapeshellarg($file) . " 2>&1", $output, $code);
-        if (!isset($code)) {
-            //probably exec function is disabled #3324
+        if (!function_exists('exec')) {
+            //exec function is disabled #3324
             return;
         }
+        exec("php -l " . escapeshellarg($file) . " 2>&1", $output, $code);
         if ($code !== 0) {
             throw new TestParseException($file, implode("\n", $output));
         }
@@ -144,7 +125,7 @@ class Parser
         try {
             self::includeFile($file);
         } catch (\ParseError $e) {
-            throw new TestParseException($file, $e->getMessage());
+            throw new TestParseException($file, $e->getMessage(), $e->getLine());
         } catch (\Exception $e) {
             // file is valid otherwise
         }

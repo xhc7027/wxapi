@@ -4,7 +4,6 @@ namespace Codeception\Lib\Connector;
 use Codeception\Lib\Connector\Yii2\Logger;
 use Codeception\Lib\Connector\Yii2\TestMailer;
 use Codeception\Util\Debug;
-use Codeception\Util\Stub;
 use Symfony\Component\BrowserKit\Client;
 use Symfony\Component\BrowserKit\Cookie;
 use Symfony\Component\BrowserKit\Response;
@@ -67,6 +66,11 @@ class Yii2 extends Client
         if (!isset($config['class'])) {
             $config['class'] = 'yii\web\Application';
         }
+        if (static::$db) {
+            // If the DB conection already exists, make sure to pass it as early as possible
+            // to prevent application from new connection creating during bootstrap
+            $config['components']['db'] = static::$db;
+        }
         /** @var \yii\web\Application $app */
         $this->app = Yii::createObject($config);
         $this->persistDb();
@@ -79,6 +83,9 @@ class Yii2 extends Client
         static::$db = null;
         static::$mailer = null;
         \yii\web\UploadedFile::reset();
+        if (method_exists(\yii\base\Event::className(), 'offAll')) {
+            \yii\base\Event::offAll();
+        }
     }
 
     /**
@@ -123,11 +130,13 @@ class Yii2 extends Client
             $target->enabled = false;
         }
 
-        $this->headers    = array();
+        $this->headers    = [];
         $this->statusCode = null;
 
         ob_start();
 
+        // recreating request object to reset headers and cookies collections
+        $app->set('request', $app->getComponents()['request']);
         $yiiRequest = $app->getRequest();
         if ($request->getContent() !== null) {
             $yiiRequest->setRawBody($request->getContent());
@@ -139,7 +148,11 @@ class Yii2 extends Client
         $yiiRequest->setQueryParams($_GET);
 
         try {
+            $app->trigger($app::EVENT_BEFORE_REQUEST);
+
             $app->handleRequest($yiiRequest)->send();
+
+            $app->trigger($app::EVENT_AFTER_REQUEST);
         } catch (\Exception $e) {
             if ($e instanceof HttpException) {
                 // Don't discard output and pass exception handling to Yii to be able
@@ -169,7 +182,7 @@ class Yii2 extends Client
     protected function revertErrorHandler()
     {
         $handler = new ErrorHandler();
-        set_error_handler(array($handler, 'errorHandler'));
+        set_error_handler([$handler, 'errorHandler']);
     }
 
 
@@ -229,7 +242,7 @@ class Yii2 extends Client
             $this->app->set('mailer', static::$mailer);
             return;
         }
-        
+
         // options that make sense for mailer mock
         $allowedOptions = [
             'htmlLayout',
@@ -242,11 +255,11 @@ class Yii2 extends Client
             'view',
             'viewPath',
         ];
-        
+
         $mailerConfig = [
             'class' => 'Codeception\Lib\Connector\Yii2\TestMailer',
         ];
-        
+
         if (isset($config['components']['mailer']) && is_array($config['components']['mailer'])) {
             foreach ($config['components']['mailer'] as $name => $value) {
                 if (in_array($name, $allowedOptions, true)) {
@@ -254,7 +267,7 @@ class Yii2 extends Client
                 }
             }
         }
-        
+
         $this->app->set('mailer', $mailerConfig);
         static::$mailer = $this->app->get('mailer');
     }

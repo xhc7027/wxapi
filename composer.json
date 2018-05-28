@@ -3,31 +3,37 @@
   "description": "爱豆子和微信交互平台",
   "homepage": "http://www.idouzi.com/",
   "type": "project",
+  "license": "proprietary",
   "minimum-stability": "stable",
-  "repositories": [{
-    "type": "composer",
-    "url": "http://composer.idouzi.com"
-  }],
   "require": {
     "php": ">=5.4.0",
-    "yiisoft/yii2": ">=2.0.5",
-    "yiisoft/yii2-bootstrap": "*",
-    "yiisoft/yii2-swiftmailer": "*",
-    "yiisoft/yii2-jui": "*",
-    "curl/curl": "*",
-    "idouzi/commons": "0.0.8.x-dev",
-    "tencentyun/php-sdk": "2.0.2"
+    "yiisoft/yii2": "2.0.13.1",
+    "yiisoft/yii2-bootstrap": "~2.0.0",
+    "yiisoft/yii2-swiftmailer": "~2.0.0",
+    "curl/curl": "1.6.*",
+    "tencentyun/php-sdk": "~2.0.2",
+    "phpoffice/phpexcel": "1.8.*",
+    "whitemerry/phpkin": "1.2.6",
+    "yiisoft/yii2-mongodb": "2.1.*",
+    "yiisoft/yii2-redis": "2.0.*",
+    "idouzi/commons" : "0.0.8.x-dev"
   },
   "require-dev": {
-    "codeception/codeception": "*",
-    "codeception/specify": "*",
-    "codeception/verify": "*",
-    "yiisoft/yii2-debug": "*",
-    "yiisoft/yii2-gii": "*",
-    "yiisoft/yii2-faker": "*"
+    "yiisoft/yii2-debug": "~2.0.0",
+    "yiisoft/yii2-gii": "~2.0.0",
+    "yiisoft/yii2-faker": "~2.0.0",
+    "codeception/codeception": "2.3.*",
+    "codeception/verify": "~0.3.1",
+    "codeception/specify": "~0.4.3"
   },
   "config": {
-    "process-timeout": 1800
+    "process-timeout": 1800,
+    "fxp-asset": {
+      "installer-paths": {
+        "npm-asset-library": "vendor/npm",
+        "bower-asset-library": "vendor/bower"
+      }
+    }
   },
   "scripts": {
     "post-create-project-cmd": [
@@ -46,10 +52,10 @@
       "generateCookieValidationKey": [
         "config/web.php"
       ]
-    },
-    "asset-installer-paths": {
-      "npm-asset-library": "vendor/npm",
-      "bower-asset-library": "vendor/bower"
     }
-  }
+  },
+  "repositories": [{
+    "type": "composer",
+    "url": "http://composer.idouzi.com"
+  }]
 }

@@ -17,7 +17,7 @@ The REST web service is accessed via HTTP with standard methods: `GET`, `POST`, 
 Configure modules in `api.suite.yml`:
 
 ``` yaml
-class_name: ApiTester
+actor: ApiTester
 modules:
     enabled:
         - REST:
@@ -28,7 +28,7 @@ modules:
 The REST module will connect to `PhpBrowser` according to this configuration. Depending on the web service we may deal with XML or JSON responses. Codeception handles both data formats well, however If you don't need one of them, you can explicitly specify that the JSON or XML parts of the module will be used:
 
 ``` yaml
-class_name: ApiTester
+actor: ApiTester
 modules:
     enabled:
         - REST:
@@ -39,9 +39,8 @@ modules:
 
 API tests can be functional and be executed using Symfony, Laravel5, Zend, or any other framework module. You will need slightly update configuration for it:
 
-
 ``` yaml
-class_name: ApiTester
+actor: ApiTester
 modules:
     enabled:
         - REST:
@@ -70,7 +69,7 @@ $I->seeResponseContains('{"result":"ok"}');
 
 ```
 
-We can use HTTP code constants from `Codeception\Util\HttpCode` instead of numeric values to check response code in `seeResponseCodeIs` and `dontSeeResponseCodeIs` methods. 
+We can use HTTP code constants from `Codeception\Util\HttpCode` instead of numeric values to check response code in `seeResponseCodeIs` and `dontSeeResponseCodeIs` methods.
 
 ### Testing JSON Responses
 
@@ -112,7 +111,7 @@ The same way you can receive request parameters and headers.
 
 ### Validate JSON structures
 
-It is pretty common for API tests to not only validate the received data but to check the structure of the response. Response data is not usually considered to be consistent, and may change on each request, however the JSON/XML structure should be kept the same for an API version. In order to check response structure the REST module has some useful methods. 
+It is pretty common for API tests to not only validate the received data but to check the structure of the response. Response data is not usually considered to be consistent, and may change on each request, however the JSON/XML structure should be kept the same for an API version. In order to check response structure the REST module has some useful methods.
 
 If we expect a JSON response to be received we can check its structure with [JSONPath](http://goessner.net/articles/JsonPath/). It looks and sounds like XPath but is designed to work with JSON data, however we can convert JSON into XML and use XPath to validate the structure. Both approaches are valid and can be used in the REST module:
 
@@ -151,7 +150,7 @@ Codeception uses this simple and lightweight definitions format which can be [ea
 
 ### Testing XML Responses
 
-In case your REST API works with XML format you can use similar methods to test its data and structure. 
+In case your REST API works with XML format you can use similar methods to test its data and structure.
 There is `seeXmlResponseIncludes` method to match inclusion of XML parts in response, and `seeXmlResponseMatchesXpath` to validate its structure.
 
 ```php
@@ -180,7 +179,6 @@ We are using XmlUtils class which allows us to build XML structures in a clean m
 Use `\Codeception\Util\Xml::build()` to create XmlBuilder instance.
 </div>
 
-
 ## SOAP
 
 SOAP web services are usually more complex. You will need PHP [configured with SOAP support](http://php.net/manual/en/soap.installation.php). Good knowledge of XML is required too. `SOAP` module uses specially formatted POST request to connect to WSDL web services. Codeception uses `PhpBrowser` or one of framework modules to perform interactions. If you choose using a framework module, SOAP will automatically connect to the underlying framework. That may improve the speed of a test execution and will provide you with more detailed stack traces.
@@ -188,7 +186,7 @@ SOAP web services are usually more complex. You will need PHP [configured with S
 Let's configure `SOAP` module to be used with `PhpBrowser`:
 
 ``` yaml
-class_name: ApiTester
+actor: ApiTester
 modules:
     enabled:
     - SOAP:

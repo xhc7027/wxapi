@@ -1,8 +1,6 @@
 <?php
 namespace Codeception\Module;
 
-use Codeception\Exception\ModuleConfigException;
-use Codeception\Exception\ModuleException;
 use Codeception\Lib\Connector\Guzzle6;
 use Codeception\Lib\InnerBrowser;
 use Codeception\Lib\Interfaces\MultiSession;
@@ -25,17 +23,15 @@ use GuzzleHttp\Client as GuzzleClient;
  * * Maintainer: **davert**
  * * Stability: **stable**
  * * Contact: codeception@codeception.com
- * * Works with [Guzzle](http://guzzlephp.org/)
  *
- * *Please review the code of non-stable modules and provide patches if you have issues.*
  *
  * ## Configuration
  *
  * * url *required* - start url of your app
+ * * headers - default headers are set before each test.
  * * handler (default: curl) -  Guzzle handler to use. By default curl is used, also possible to pass `stream`, or any valid class name as [Handler](http://docs.guzzlephp.org/en/latest/handlers-and-middleware.html#handlers).
  * * middleware - Guzzle middlewares to add. An array of valid callables is required.
  * * curl - curl options
- * * headers - ...
  * * cookies - ...
  * * auth - ...
  * * verify - ...
@@ -85,6 +81,7 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
     protected $requiredFields = ['url'];
 
     protected $config = [
+        'headers' => [],
         'verify' => false,
         'expect' => false,
         'timeout' => 30,
@@ -100,7 +97,6 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
     ];
 
     protected $guzzleConfigFields = [
-        'headers',
         'auth',
         'proxy',
         'verify',
@@ -131,7 +127,6 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
 
     public function _initialize()
     {
-        $this->client = $this->guessGuzzleConnector();
         $this->_initializeSession();
     }
 
@@ -150,7 +145,7 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
         if (!$this->client) {
             $this->client = $this->guessGuzzleConnector();
         }
-        $this->_initializeSession();
+        $this->_prepareSession();
     }
 
     public function _getUrl()
@@ -179,6 +174,9 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
         $host = Uri::retrieveHost($url);
         $this->_reconfigure(['url' => $host]);
         $page = substr($url, strlen($host));
+        if ($page === '') {
+            $page = '/';
+        }
         $this->debugSection('Host', $host);
         $this->amOnPage($page);
     }
@@ -193,7 +191,7 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
 
     protected function onReconfigure()
     {
-        $this->_initializeSession();
+        $this->_prepareSession();
     }
 
     /**
@@ -228,6 +226,13 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
 
     public function _initializeSession()
     {
+        // independent sessions need independent cookies
+        $this->client = $this->guessGuzzleConnector();
+        $this->_prepareSession();
+    }
+
+    public function _prepareSession()
+    {
         $defaults = array_intersect_key($this->config, array_flip($this->guzzleConfigFields));
         $curlOptions = [];
 
@@ -237,6 +242,7 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
             }
         }
 
+        $this->headers = $this->config['headers'];
         $this->setCookiesFromOptions();
 
         if ($this->isGuzzlePsr7) {
@@ -265,7 +271,8 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
         return [
             'client' => $this->client,
             'guzzle' => $this->guzzle,
-            'crawler' => $this->crawler
+            'crawler' => $this->crawler,
+            'headers' => $this->headers,
         ];
     }
 
@@ -276,7 +283,7 @@ class PhpBrowser extends InnerBrowser implements Remote, MultiSession, RequiresP
         }
     }
 
-    public function _closeSession($session)
+    public function _closeSession($session = null)
     {
         unset($session);
     }
