@@ -106,7 +106,7 @@ class ScriptController extends Controller
      */
     public function actionTsMsgSupplierFounder()
     {
-        $queueName = Yii::$app->params['queueNames']['queueMallSupplierFounderTsMsg'];
+        $queueName = Yii::$app->params['topic']['topicDlgFounderTsMsg'];
         try {
             $tsMsgData = TsMsgSupplierFounder::selectData();
             if (!$tsMsgData) return;
@@ -117,7 +117,7 @@ class ScriptController extends Controller
                 $Reconstruction['tsId'] = $v['tsId'];
                 $queueData[] = json_encode($Reconstruction);
             }
-            TencentQueueUtil::batchSendMessage($queueName, $queueData);
+            TencentQueueUtil::batchpublishMessage($queueName, $queueData);
         } catch (\Exception $e) {
             Yii::warning('不断发送公众号换绑事务消息失败' . $e->getMessage(), __METHOD__);
         }
