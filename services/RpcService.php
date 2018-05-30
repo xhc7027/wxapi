@@ -5,6 +5,7 @@ namespace app\services;
 use app\commons\FileUtil;
 use app\models\RespMsg;
 use Yii;
+use app\models\TsMsgSupplierFounder;
 
 /**
  * <p>这是所有RPC服务调用的入口，在里面并不真正实现某些业务，而是由具体的算法实现来完成，
@@ -214,10 +215,10 @@ class RpcService
     public function msgPush(array $pushData, string $templateId)
     {
         $resMsg = new RespMsg(['return_code' => RespMsg::FAIL]);
-        try{
+        try {
             $resMsg->return_msg = Yii::$app->weiXinService->pushMsg($pushData, $templateId);
             $resMsg->return_code = RespMsg::SUCCESS;
-        }catch (\Exception $e){
+        } catch (\Exception $e) {
             Yii::warning('推送失败:' . $e->getMessage(), __METHOD__);
             $resMsg->return_msg = $e->getMessage();
         }
@@ -258,5 +259,28 @@ class RpcService
 
         $respMsg->return_msg = $signPackage;
         return $respMsg;
+    }
+
+    /**
+     * 检验事务id是否存在
+     *
+     * @param $tsId string 事务id
+     * @return array {
+     * {
+     * "return_code": "SUCCESS",
+     * "return_msg": true/false,//true表示存在，false不存在
+     * }
+     */
+    public function checkTsId(string $tsId)
+    {
+        $respMsg = new RespMsg();
+        try {
+            $respMsg->return_msg = TsMsgSupplierFounder::findOne($tsId) ? true : false;
+        } catch (Exception $e) {
+            Yii::warning('检验事务id是否存在' . $e->getMessage(), __METHOD__);
+            $respMsg->return_msg = $e->getMessage();
+            $respMsg->return_code = RespMsg::FAIL;
+        }
+        return $respMsg->toArray();
     }
 }

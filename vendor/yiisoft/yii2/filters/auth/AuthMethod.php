@@ -10,10 +10,10 @@ namespace yii\filters\auth;
 use Yii;
 use yii\base\Action;
 use yii\base\ActionFilter;
-use yii\web\UnauthorizedHttpException;
-use yii\web\User;
 use yii\web\Request;
 use yii\web\Response;
+use yii\web\UnauthorizedHttpException;
+use yii\web\User;
 
 /**
  * AuthMethod is a base class implementing the [[AuthInterface]] interface.
@@ -51,12 +51,12 @@ abstract class AuthMethod extends ActionFilter implements AuthInterface
      */
     public function beforeAction($action)
     {
-        $response = $this->response ? : Yii::$app->getResponse();
+        $response = $this->response ?: Yii::$app->getResponse();
 
         try {
             $identity = $this->authenticate(
-                $this->user ? : Yii::$app->getUser(),
-                $this->request ? : Yii::$app->getRequest(),
+                $this->user ?: Yii::$app->getUser(),
+                $this->request ?: Yii::$app->getRequest(),
                 $response
             );
         } catch (UnauthorizedHttpException $e) {
@@ -69,11 +69,12 @@ abstract class AuthMethod extends ActionFilter implements AuthInterface
 
         if ($identity !== null || $this->isOptional($action)) {
             return true;
-        } else {
-            $this->challenge($response);
-            $this->handleFailure($response);
-            return false;
         }
+
+        $this->challenge($response);
+        $this->handleFailure($response);
+
+        return false;
     }
 
     /**
@@ -95,7 +96,7 @@ abstract class AuthMethod extends ActionFilter implements AuthInterface
      * Checks, whether authentication is optional for the given action.
      *
      * @param Action $action action to be checked.
-     * @return boolean whether authentication is optional or not.
+     * @return bool whether authentication is optional or not.
      * @see optional
      * @since 2.0.7
      */
@@ -107,6 +108,7 @@ abstract class AuthMethod extends ActionFilter implements AuthInterface
                 return true;
             }
         }
+
         return false;
     }
 }

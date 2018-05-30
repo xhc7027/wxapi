@@ -28,16 +28,20 @@ class ParamsLoader
         }
 
         try {
-            if (preg_match('~(\.env(\.|$))~', $paramStorage)) {
-                return $this->loadDotEnvFile();
-            }
-
             if (preg_match('~\.yml$~', $paramStorage)) {
                 return $this->loadYamlFile();
             }
 
             if (preg_match('~\.ini$~', $paramStorage)) {
                 return $this->loadIniFile();
+            }
+
+            if (preg_match('~\.php$~', $paramStorage)) {
+                return $this->loadPhpFile();
+            }
+
+            if (preg_match('~(\.env(\.|$))~', $paramStorage)) {
+                return $this->loadDotEnvFile();
             }
         } catch (\Exception $e) {
             throw new ConfigurationException("Failed loading params from $paramStorage\n" . $e->getMessage());
@@ -56,6 +60,11 @@ class ParamsLoader
         return parse_ini_file($this->paramsFile);
     }
 
+    protected function loadPhpFile()
+    {
+        return require $this->paramsFile;
+    }
+
     protected function loadYamlFile()
     {
         $params = Yaml::parse(file_get_contents($this->paramsFile));
@@ -67,15 +76,20 @@ class ParamsLoader
 
     protected function loadDotEnvFile()
     {
-        if (!class_exists('Dotenv\Dotenv')) {
-            throw new ConfigurationException(
-                "`vlucas/phpdotenv` library is required to parse .env files.\n" .
-                "Please install it via composer: composer require vlucas/phpdotenv"
-            );
+        if (class_exists('Dotenv\Dotenv')) {
+            $dotEnv = new \Dotenv\Dotenv(codecept_root_dir(), $this->paramStorage);
+            $dotEnv->load();
+            return $_SERVER;
+        } elseif (class_exists('Symfony\Component\Dotenv\Dotenv')) {
+            $dotEnv = new \Symfony\Component\Dotenv\Dotenv();
+            $dotEnv->load(codecept_root_dir($this->paramStorage));
+            return $_SERVER;
         }
-        $dotEnv = new \Dotenv\Dotenv(codecept_root_dir(), $this->paramStorage);
-        $dotEnv->load();
-        return $_ENV;
+
+        throw new ConfigurationException(
+            "`vlucas/phpdotenv` library is required to parse .env files.\n" .
+            "Please install it via composer: composer require vlucas/phpdotenv"
+        );
     }
 
     protected function loadEnvironmentVars()

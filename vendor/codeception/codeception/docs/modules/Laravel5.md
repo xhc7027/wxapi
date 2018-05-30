@@ -1,37 +1,18 @@
 # Laravel5
 
-
-
-This module allows you to run functional tests for Laravel 5.
+This module allows you to run functional tests for Laravel 5.1+
 It should **not** be used for acceptance tests.
 See the Acceptance tests section below for more details.
 
-As of Codeception 2.2 this module only works for Laravel 5.1 and later releases.
-If you want to test a Laravel 5.0 application you have to use Codeception 2.1.
-You can also upgrade your Laravel application to 5.1, for more details check the Laravel Upgrade Guide
-at <https://laravel.com/docs/master/upgrade>.
-
 ## Demo project
-<https://github.com/janhenkgerritsen/codeception-laravel5-sample>
-
-## Status
-
-* Maintainer: **Jan-Henk Gerritsen**
-* Stability: **stable**
-
-## Example
-
-    modules:
-        enabled:
-            - Laravel5:
-                environment_file: .env.testing
+<https://github.com/codeception/codeception-laravel5-sample>
 
 ## Config
 
 * cleanup: `boolean`, default `true` - all database queries will be run in a transaction,
   which will be rolled back at the end of each test.
 * run_database_migrations: `boolean`, default `false` - run database migrations before each test.
-* database_migrations_path: `string`, default `` - path to the database migrations, relative to the root of the application.
+* database_migrations_path: `string`, default `null` - path to the database migrations, relative to the root of the application.
 * run_database_seeder: `boolean`, default `false` - run database seeder before each test.
 * database_seeder_class: `string`, default `` - database seeder class name.
 * environment_file: `string`, default `.env` - the environment file to load for the tests.
@@ -44,6 +25,27 @@ at <https://laravel.com/docs/master/upgrade>.
 * disable_events: `boolean`, default `false` - disable events (does not disable model events).
 * disable_model_events: `boolean`, default `false` - disable model events.
 * url: `string`, default `` - the application URL.
+
+### Example #1 (`functional.suite.yml`)
+
+Enabling module:
+
+```yml
+modules:
+    enabled:
+        - Laravel5
+```
+
+### Example #2 (`functional.suite.yml`)
+
+Enabling module with custom .env file
+
+```yml
+modules:
+    enabled:
+        - Laravel5:
+            environment_file: .env.testing
+```
 
 ## API
 
@@ -63,25 +65,28 @@ at <https://laravel.com/docs/master/upgrade>.
 ## Acceptance tests
 
 You should not use this module for acceptance tests.
-If you want to use Laravel functionality with your acceptance tests,
-for example to do test setup, you can initialize the Laravel functionality
-by adding the following lines of code to the `_bootstrap.php` file of your test suite:
+If you want to use Eloquent within your acceptance tests (paired with WebDriver) enable only
+ORM part of this module:
 
-    require 'bootstrap/autoload.php';
-    $app = require 'bootstrap/app.php';
-    $app->loadEnvironmentFrom('.env.testing');
-    $app->instance('request', new \Illuminate\Http\Request);
-    $app->make('Illuminate\Contracts\Http\Kernel')->bootstrap();
+### Example (`acceptance.suite.yml`)
 
-
-
+```yaml
+modules:
+    enabled:
+        - WebDriver:
+            browser: chrome
+            url: http://127.0.0.1:8000
+        - Laravel5:
+            part: ORM
+            environment_file: .env.testing
+```
 
 ## Actions
 
 ### _findElements
 
 *hidden API method, expected to be used from Helper classes*
- 
+
 Locates element using available Codeception locator types:
 
 * XPath
@@ -105,11 +110,10 @@ PhpBrowser and Framework modules return `Symfony\Component\DomCrawler\Crawler` i
  * `param` $locator
  * `return` array of interactive elements
 
-
 ### _getResponseContent
 
 *hidden API method, expected to be used from Helper classes*
- 
+
 Returns content of the last response
 Use it in Helpers when you want to retrieve response of request performed by another module.
 
@@ -124,13 +128,12 @@ public function seeResponseContains($text)
 ```
 
  * `return` string
- * `throws`  ModuleException
-
+@throws ModuleException
 
 ### _loadPage
 
 *hidden API method, expected to be used from Helper classes*
- 
+
 Opens a page with arbitrary request parameters.
 Useful for testing multi-step forms on a specific step.
 
@@ -150,11 +153,10 @@ public function openCheckoutFormStep2($orderId) {
  * `param array` $server
  * `param null` $content
 
-
 ### _request
 
 *hidden API method, expected to be used from Helper classes*
- 
+
 Send custom request to a backend using method, uri, parameters, etc.
 Use it in Helpers to create special request actions, like accessing API
 Returns a string with response body.
@@ -179,14 +181,13 @@ To load arbitrary page for interaction, use `_loadPage` method.
  * `param array` $server
  * `param null` $content
  * `return` mixed|Crawler
- * `throws`  ExternalUrlException
- * `see`  `_loadPage`
-
+@throws ExternalUrlException
+@see `_loadPage`
 
 ### _savePageSource
 
 *hidden API method, expected to be used from Helper classes*
- 
+
 Saves page source of to a file
 
 ```php
@@ -194,17 +195,15 @@ $this->getModule('Laravel5')->_savePageSource(codecept_output_dir().'page.html')
 ```
  * `param` $filename
 
-
 ### amHttpAuthenticated
- 
+
 Authenticates user for HTTP_AUTH
 
  * `param` $username
  * `param` $password
 
-
 ### amLoggedAs
- 
+
 Set the currently logged in user for the application.
 Takes either an object that implements the User interface or
 an array of credentials.
@@ -212,7 +211,7 @@ an array of credentials.
 ``` php
 <?php
 // provide array of credentials
-$I->amLoggedAs(['username' => 'jane * `example.com',`  'password' => 'password']);
+$I->amLoggedAs(['username' => 'jane@example.com', 'password' => 'password']);
 
 // provide User object
 $I->amLoggedAs( new User );
@@ -224,23 +223,21 @@ $I->amLoggedAs( new User );
  * `param`  string|null $driver The authentication driver for Laravel <= 5.1.*, guard name for Laravel >= 5.2
  * `return` void
 
-
 ### amOnAction
- 
+
 Opens web page by action name
 
 ``` php
 <?php
-$I->amOnAction('PostsController * `index');` 
+$I->amOnAction('PostsController@index');
 ?>
 ```
 
  * `param` $action
  * `param array` $params
 
-
 ### amOnPage
- 
+
 Opens the page for the given relative URI.
 
 ``` php
@@ -251,11 +248,10 @@ $I->amOnPage('/');
 $I->amOnPage('/register');
 ```
 
- * `param` $page
-
+ * `param string` $page
 
 ### amOnRoute
- 
+
 Opens web page using route name and parameters.
 
 ``` php
@@ -267,24 +263,22 @@ $I->amOnRoute('posts.create');
  * `param` $routeName
  * `param array` $params
 
-
 ### attachFile
- 
-Attaches a file relative to the Codeception data directory to the given file upload field.
+
+Attaches a file relative to the Codeception `_data` directory to the given file upload field.
 
 ``` php
 <?php
 // file is stored in 'tests/_data/prices.xls'
-$I->attachFile('input[ * `type="file"]',`  'prices.xls');
+$I->attachFile('input[@type="file"]', 'prices.xls');
 ?>
 ```
 
  * `param` $field
  * `param` $filename
 
-
 ### callArtisan
- 
+
 Call an Artisan command.
 
 ``` php
@@ -297,9 +291,8 @@ $I->callArtisan('command:name', ['parameter' => 'value']);
  * `param string` $command
  * `param array` $parameters
 
-
 ### checkOption
- 
+
 Ticks a checkbox. For radio buttons, use the `selectOption` method instead.
 
 ``` php
@@ -310,9 +303,18 @@ $I->checkOption('#agree');
 
  * `param` $option
 
+### clearApplicationHandlers
+
+Clear the registered application handlers.
+
+``` php
+<?php
+$I->clearApplicationHandlers();
+?>
+```
 
 ### click
- 
+
 Perform a click on a link or a button, given by a locator.
 If a fuzzy locator is given, the page will be searched for a button, link, or image matching the locator string.
 For buttons, the "value" attribute, "name" attribute, and inner text are searched.
@@ -332,7 +334,7 @@ $I->click('Submit');
 // CSS button
 $I->click('#form input[type=submit]');
 // XPath
-$I->click('//form/*[ * `type=submit]');` 
+$I->click('//form/*[@type=submit]');
 // link in context
 $I->click('Logout', '#nav');
 // using strict locator
@@ -343,9 +345,8 @@ $I->click(['link' => 'Login']);
  * `param` $link
  * `param` $context
 
-
 ### deleteHeader
- 
+
 Deletes the header with the passed name.  Subsequent requests
 will not have the deleted header in its request.
 
@@ -362,9 +363,8 @@ $I->amOnPage('some-other-page.php');
 
  * `param string` $name the name of the header to delete.
 
-
 ### disableEvents
- 
+
 Disable events for the next requests.
 This method does not disable model events.
 To disable model events you have to use the disableModelEvents() method.
@@ -375,9 +375,8 @@ $I->disableEvents();
 ?>
 ```
 
-
 ### disableExceptionHandling
- 
+
 Disable Laravel exception handling.
 
 ``` php
@@ -386,9 +385,8 @@ $I->disableExceptionHandling();
 ?>
 ```
 
-
 ### disableMiddleware
- 
+
 Disable middleware for the next requests.
 
 ``` php
@@ -397,9 +395,8 @@ $I->disableMiddleware();
 ?>
 ```
 
-
 ### disableModelEvents
- 
+
 Disable model events for the next requests.
 
 ``` php
@@ -408,9 +405,8 @@ $I->disableModelEvents();
 ?>
 ```
 
-
 ### dontSee
- 
+
 Checks that the current page doesn't contain the text specified (case insensitive).
 Give a locator as the second parameter to match a specific region.
 
@@ -436,19 +432,17 @@ But will ignore strings like:
 
 For checking the raw source code, use `seeInSource()`.
 
- * `param`      $text
- * `param null` $selector
-
+ * `param string` $text
+ * `param string` $selector optional
 
 ### dontSeeAuthentication
- 
+
 Check that user is not authenticated.
 You can specify the guard that should be use for Laravel >= 5.2.
  * `param string|null` $guard
 
-
 ### dontSeeCheckboxIsChecked
- 
+
 Check that the specified checkbox is unchecked.
 
 ``` php
@@ -460,9 +454,8 @@ $I->seeCheckboxIsChecked('#signup_form input[type=checkbox]'); // I suppose user
 
  * `param` $checkbox
 
-
 ### dontSeeCookie
- 
+
 Checks that there isn't a cookie with the given name.
 You can set additional cookie params like `domain`, `path` as array passed in last argument.
 
@@ -470,9 +463,8 @@ You can set additional cookie params like `domain`, `path` as array passed in la
 
  * `param array` $params
 
-
 ### dontSeeCurrentUrlEquals
- 
+
 Checks that the current URL doesn't equal the given string.
 Unlike `dontSeeInCurrentUrl`, this only matches the full URL.
 
@@ -483,11 +475,10 @@ $I->dontSeeCurrentUrlEquals('/');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### dontSeeCurrentUrlMatches
- 
+
 Checks that current url doesn't match the given regular expression.
 
 ``` php
@@ -497,11 +488,10 @@ $I->dontSeeCurrentUrlMatches('~$/users/(\d+)~');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### dontSeeElement
- 
+
 Checks that the given element is invisible or not present on the page.
 You can also specify expected attributes of this element.
 
@@ -517,9 +507,8 @@ $I->dontSeeElement('input', ['value' => '123456']);
  * `param` $selector
  * `param array` $attributes
 
-
 ### dontSeeEventTriggered
- 
+
 Make sure events did not fire during the test.
 
 ``` php
@@ -532,9 +521,8 @@ $I->dontSeeEventTriggered(['App\MyEvent', 'App\MyOtherEvent']);
 ```
  * `param` $events
 
-
 ### dontSeeFormErrors
- 
+
 Assert that there are no form errors bound to the View.
 
 ``` php
@@ -545,9 +533,8 @@ $I->dontSeeFormErrors();
 
  * `return` bool
 
-
 ### dontSeeInCurrentUrl
- 
+
 Checks that the current URI doesn't contain the given string.
 
 ``` php
@@ -556,11 +543,10 @@ $I->dontSeeInCurrentUrl('/users/');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### dontSeeInField
- 
+
 Checks that an input field or textarea doesn't contain the given value.
 For fuzzy locators, the field is matched by label text, CSS and XPath.
 
@@ -570,7 +556,7 @@ $I->dontSeeInField('Body','Type your comment here');
 $I->dontSeeInField('form textarea[name=body]','Type your comment here');
 $I->dontSeeInField('form input[type=hidden]','hidden_value');
 $I->dontSeeInField('#searchform input','Search');
-$I->dontSeeInField('//form/*[ * `name=search]','Search');` 
+$I->dontSeeInField('//form/*[@name=search]','Search');
 $I->dontSeeInField(['name' => 'search'], 'Search');
 ?>
 ```
@@ -578,9 +564,8 @@ $I->dontSeeInField(['name' => 'search'], 'Search');
  * `param` $field
  * `param` $value
 
-
 ### dontSeeInFormFields
- 
+
 Checks if the array of form parameters (name => value) are not set on the form matched with
 the passed selector.
 
@@ -621,9 +606,8 @@ $I->dontSeeInFormFields('#form-id', [
  * `param` $formSelector
  * `param` $params
 
-
 ### dontSeeInSource
- 
+
 Checks that the current page contains the given string in its
 raw source code.
 
@@ -634,17 +618,14 @@ $I->dontSeeInSource('<h1>Green eggs &amp; ham</h1>');
 
  * `param`      $raw
 
-
 ### dontSeeInTitle
- 
+
 Checks that the page title does not contain the given string.
 
  * `param` $title
 
-
-
 ### dontSeeLink
- 
+
 Checks that the page doesn't contain a link with the given string.
 If the second parameter is given, only links with a matching "href" attribute will be checked.
 
@@ -655,12 +636,11 @@ $I->dontSeeLink('Checkout now', '/store/cart.php');
 ?>
 ```
 
- * `param` $text
- * `param null` $url
-
+ * `param string` $text
+ * `param string` $url optional
 
 ### dontSeeOptionIsSelected
- 
+
 Checks that the given option is not selected.
 
 ``` php
@@ -672,10 +652,8 @@ $I->dontSeeOptionIsSelected('#form input[name=payment]', 'Visa');
  * `param` $selector
  * `param` $optionText
 
-
-
 ### dontSeeRecord
- 
+
 Checks that record does not exist in database.
 You can pass the name of a database table or the class name of an Eloquent model as the first argument.
 
@@ -690,9 +668,8 @@ $I->dontSeeRecord('App\User', array('name' => 'davert'));
  * `param array` $attributes
  * `[Part]` orm
 
-
 ### dontSeeResponseCodeIs
- 
+
 Checks that response code is equal to value provided.
 
 ```php
@@ -704,9 +681,8 @@ $I->dontSeeResponseCodeIs(\Codeception\Util\HttpCode::OK);
 ```
  * `param` $code
 
-
 ### enableExceptionHandling
- 
+
 Enable Laravel exception handling.
 
 ``` php
@@ -715,31 +691,28 @@ $I->enableExceptionHandling();
 ?>
 ```
 
-
 ### fillField
- 
+
 Fills a text field or textarea with the given string.
 
 ``` php
 <?php
-$I->fillField("//input[ * `type='text']",`  "Hello World!");
-$I->fillField(['name' => 'email'], 'jon * `mail.com');` 
+$I->fillField("//input[@type='text']", "Hello World!");
+$I->fillField(['name' => 'email'], 'jon@mail.com');
 ?>
 ```
 
  * `param` $field
  * `param` $value
 
-
 ### getApplication
- 
+
 Provides access the Laravel application object.
 
  * `return` \Illuminate\Foundation\Application
 
-
 ### grabAttributeFrom
- 
+
 Grabs the value of the given attribute value from the given element.
 Fails if element is not found.
 
@@ -749,14 +722,11 @@ $I->grabAttributeFrom('#tooltip', 'title');
 ?>
 ```
 
-
  * `param` $cssOrXpath
  * `param` $attribute
 
-
-
 ### grabCookie
- 
+
 Grabs a cookie value.
 You can set additional cookie params like `domain`, `path` in array passed as last argument.
 
@@ -764,10 +734,9 @@ You can set additional cookie params like `domain`, `path` in array passed as la
 
  * `param array` $params
 
-
 ### grabFromCurrentUrl
- 
-Executes the given regular expression against the current URI and returns the first match.
+
+Executes the given regular expression against the current URI and returns the first capturing group.
 If no parameters are provided, the full URI is returned.
 
 ``` php
@@ -777,12 +746,10 @@ $uri = $I->grabFromCurrentUrl();
 ?>
 ```
 
- * `param null` $uri
-
-
+ * `param string` $uri optional
 
 ### grabMultiple
- 
+
 Grabs either the text content, or attribute values, of nodes
 matched by $cssOrXpath and returns them as an array.
 
@@ -806,9 +773,33 @@ $aLinks = $I->grabMultiple('a', 'href');
  * `param` $attribute
  * `return` string[]
 
+### grabNumRecords
+
+Retrieves number of records from database
+You can pass the name of a database table or the class name of an Eloquent model as the first argument.
+
+``` php
+<?php
+$I->grabNumRecords('users', array('name' => 'davert'));
+$I->grabNumRecords('App\User', array('name' => 'davert'));
+?>
+```
+
+ * `param string` $table
+ * `param array` $attributes
+ * `return` integer
+ * `[Part]` orm
+
+### grabPageSource
+
+Grabs current page source code.
+
+@throws ModuleException if no page was opened.
+
+ * `return` string Current page source code.
 
 ### grabRecord
- 
+
 Retrieves record from database
 If you pass the name of a database table as the first argument, this method returns an array.
 You can also pass the class name of an Eloquent model, in that case this method returns an Eloquent model.
@@ -825,9 +816,8 @@ $record = $I->grabRecord('App\User', array('name' => 'davert')); // returns Eloq
  * `return` array|EloquentModel
  * `[Part]` orm
 
-
 ### grabService
- 
+
 Return an instance of a class from the Laravel service container.
 (https://laravel.com/docs/master/container)
 
@@ -848,9 +838,8 @@ $service = $I->grabService('foo');
 
  * `param`  string $class
 
-
 ### grabTextFrom
- 
+
 Finds and returns the text contents of the given element.
 If a fuzzy locator is used, the element is found using CSS, XPath,
 and by matching the full page source by regular expression.
@@ -865,17 +854,14 @@ $value = $I->grabTextFrom('~<input value=(.*?)]~sgi'); // match with a regex
 
  * `param` $cssOrXPathOrRegex
 
-
-
 ### grabValueFrom
- 
+
  * `param` $field
 
  * `return` array|mixed|null|string
 
-
 ### have
- 
+
 Use Laravel's model factory to create a model.
 Can only be used with Laravel 5.1 and later.
 
@@ -887,15 +873,29 @@ $I->have('App\User', [], 'admin');
 ?>
 ```
 
- * `see`  http://laravel.com/docs/5.1/testing#model-factories
+@see http://laravel.com/docs/5.1/testing#model-factories
  * `param string` $model
  * `param array` $attributes
  * `param string` $name
  * `[Part]` orm
 
+### haveApplicationHandler
+
+Register a handler than can be used to modify the Laravel application object after it is initialized.
+The Laravel application object will be passed as an argument to the handler.
+
+``` php
+<?php
+$I->haveApplicationHandler(function($app) {
+    $app->make('config')->set(['test_value' => '10']);
+});
+?>
+```
+
+ * `param` $handler
 
 ### haveBinding
- 
+
 Add a binding to the Laravel service container.
 (https://laravel.com/docs/master/container)
 
@@ -908,9 +908,8 @@ $I->haveBinding('My\Interface', 'My\Implementation');
  * `param` $abstract
  * `param` $concrete
 
-
 ### haveContextualBinding
- 
+
 Add a contextual binding to the Laravel service container.
 (https://laravel.com/docs/master/container)
 
@@ -929,17 +928,27 @@ $app->when('My\Class')
  * `param` $abstract
  * `param` $implementation
 
-
 ### haveHttpHeader
- 
+
 Sets the HTTP header to the passed value - which is used on
 subsequent HTTP requests through PhpBrowser.
 
 Example:
 ```php
 <?php
-$I->setHeader('X-Requested-With', 'Codeception');
+$I->haveHttpHeader('X-Requested-With', 'Codeception');
 $I->amOnPage('test-headers.php');
+?>
+```
+
+To use special chars in Header Key use HTML Character Entities:
+Example:
+Header with underscore - 'Client_Id'
+should be represented as - 'Client&#x0005F;Id' or 'Client&#95;Id'
+
+```php
+<?php
+$I->haveHttpHeader('Client&#95;Id', 'Codeception');
 ?>
 ```
 
@@ -947,9 +956,8 @@ $I->amOnPage('test-headers.php');
  * `param string` $value the value to set it to for subsequent
        requests
 
-
 ### haveInstance
- 
+
 Add an instance binding to the Laravel service container.
 (https://laravel.com/docs/master/container)
 
@@ -962,9 +970,8 @@ $I->haveInstance('My\Class', new My\Class());
  * `param` $abstract
  * `param` $instance
 
-
 ### haveMultiple
- 
+
 Use Laravel's model factory to create multiple models.
 Can only be used with Laravel 5.1 and later.
 
@@ -976,16 +983,15 @@ $I->haveMultiple('App\User', 10, [], 'admin');
 ?>
 ```
 
- * `see`  http://laravel.com/docs/5.1/testing#model-factories
+@see http://laravel.com/docs/5.1/testing#model-factories
  * `param string` $model
  * `param int` $times
  * `param array` $attributes
  * `param string` $name
  * `[Part]` orm
 
-
 ### haveRecord
- 
+
 Inserts record into the database.
 If you pass the name of a database table as the first argument, this method returns an integer ID.
 You can also pass the class name of an Eloquent model, in that case this method returns an Eloquent model.
@@ -1002,9 +1008,8 @@ $user = $I->haveRecord('App\User', array('name' => 'Davert')); // returns Eloque
  * `return` integer|EloquentModel
  * `[Part]` orm
 
-
 ### haveSingleton
- 
+
 Add a singleton binding to the Laravel service container.
 (https://laravel.com/docs/master/container)
 
@@ -1017,21 +1022,18 @@ $I->haveSingleton('My\Interface', 'My\Singleton');
  * `param` $abstract
  * `param` $concrete
 
-
 ### logout
- 
+
 Logout user.
 
-
 ### moveBack
- 
+
 Moves back in history.
 
  * `param int` $numberOfSteps (default value 1)
 
-
 ### resetCookie
- 
+
 Unsets cookie with the given name.
 You can set additional cookie params like `domain`, `path` in array passed as last argument.
 
@@ -1039,9 +1041,8 @@ You can set additional cookie params like `domain`, `path` in array passed as la
 
  * `param array` $params
 
-
 ### see
- 
+
 Checks that the current page contains the given string (case insensitive).
 
 You can specify a specific HTML element (via CSS or XPath) as the second
@@ -1069,34 +1070,31 @@ But will *not* be true for strings like:
 
 For checking the raw source code, use `seeInSource()`.
 
- * `param`      $text
- * `param null` $selector
-
+ * `param string` $text
+ * `param string` $selector optional
 
 ### seeAuthentication
- 
+
 Checks that a user is authenticated.
 You can specify the guard that should be use for Laravel >= 5.2.
  * `param string|null` $guard
 
-
 ### seeCheckboxIsChecked
- 
+
 Checks that the specified checkbox is checked.
 
 ``` php
 <?php
 $I->seeCheckboxIsChecked('#agree'); // I suppose user agreed to terms
 $I->seeCheckboxIsChecked('#signup_form input[type=checkbox]'); // I suppose user agreed to terms, If there is only one checkbox in form.
-$I->seeCheckboxIsChecked('//form/input[ * `type=checkbox`  and  * `name=agree]');` 
+$I->seeCheckboxIsChecked('//form/input[@type=checkbox and @name=agree]');
 ?>
 ```
 
  * `param` $checkbox
 
-
 ### seeCookie
- 
+
 Checks that a cookie with the given name is set.
 You can set additional cookie params like `domain`, `path` as array passed in last argument.
 
@@ -1109,22 +1107,20 @@ $I->seeCookie('PHPSESSID');
  * `param` $cookie
  * `param array` $params
 
-
 ### seeCurrentActionIs
- 
+
 Checks that current url matches action
 
 ``` php
 <?php
-$I->seeCurrentActionIs('PostsController * `index');` 
+$I->seeCurrentActionIs('PostsController@index');
 ?>
 ```
 
  * `param` $action
 
-
 ### seeCurrentRouteIs
- 
+
 Checks that current url matches route
 
 ``` php
@@ -1134,9 +1130,8 @@ $I->seeCurrentRouteIs('posts.index');
 ```
  * `param` $routeName
 
-
 ### seeCurrentUrlEquals
- 
+
 Checks that the current URL is equal to the given string.
 Unlike `seeInCurrentUrl`, this only matches the full URL.
 
@@ -1147,11 +1142,10 @@ $I->seeCurrentUrlEquals('/');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### seeCurrentUrlMatches
- 
+
 Checks that the current URL matches the given regular expression.
 
 ``` php
@@ -1161,11 +1155,10 @@ $I->seeCurrentUrlMatches('~$/users/(\d+)~');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### seeElement
- 
+
 Checks that the given element exists on the page and is visible.
 You can also specify expected attributes of this element.
 
@@ -1183,11 +1176,10 @@ $I->seeElement(['css' => 'form input'], ['name' => 'login']);
 
  * `param` $selector
  * `param array` $attributes
- * `return` 
-
+@return
 
 ### seeEventTriggered
- 
+
 Make sure events fired during the test.
 
 ``` php
@@ -1200,9 +1192,8 @@ $I->seeEventTriggered(['App\MyEvent', 'App\MyOtherEvent']);
 ```
  * `param` $events
 
-
 ### seeFormErrorMessage
- 
+
 Assert that a specific form error message is set in the view.
 
 If you want to assert that there is a form error message for a specific key
@@ -1220,9 +1211,8 @@ $I->seeFormErrorMessage('username', 'Invalid Username');
  * `param string` $key
  * `param string|null` $expectedErrorMessage
 
-
 ### seeFormErrorMessages
- 
+
 Assert that specific form error messages are set in the view.
 
 This method calls `seeFormErrorMessage` for each entry in the `$bindings` array.
@@ -1237,9 +1227,8 @@ $I->seeFormErrorMessages([
 ```
  * `param array` $bindings
 
-
 ### seeFormHasErrors
- 
+
 Assert that form errors are bound to the View.
 
 ``` php
@@ -1250,9 +1239,8 @@ $I->seeFormHasErrors();
 
  * `return` bool
 
-
 ### seeInCurrentUrl
- 
+
 Checks that current URI contains the given string.
 
 ``` php
@@ -1264,13 +1252,12 @@ $I->seeInCurrentUrl('/users/');
 ?>
 ```
 
- * `param` $uri
-
+ * `param string` $uri
 
 ### seeInField
- 
-Checks that the given input field or textarea contains the given value.
-For fuzzy locators, fields are matched by label text, the "name" attribute, CSS, and XPath.
+
+Checks that the given input field or textarea *equals* (i.e. not just contains) the given value.
+Fields are matched by label text, the "name" attribute, CSS, or XPath.
 
 ``` php
 <?php
@@ -1278,7 +1265,7 @@ $I->seeInField('Body','Type your comment here');
 $I->seeInField('form textarea[name=body]','Type your comment here');
 $I->seeInField('form input[type=hidden]','hidden_value');
 $I->seeInField('#searchform input','Search');
-$I->seeInField('//form/*[ * `name=search]','Search');` 
+$I->seeInField('//form/*[@name=search]','Search');
 $I->seeInField(['name' => 'search'], 'Search');
 ?>
 ```
@@ -1286,9 +1273,8 @@ $I->seeInField(['name' => 'search'], 'Search');
  * `param` $field
  * `param` $value
 
-
 ### seeInFormFields
- 
+
 Checks if the array of form parameters (name => value) are set on the form matched with the
 passed selector.
 
@@ -1340,18 +1326,17 @@ $form = [
      'checkbox1' => true,
      // ...
 ];
-$I->submitForm('//form[ * `id=my-form]',`  $form, 'submitButton');
+$I->submitForm('//form[@id=my-form]', $form, 'submitButton');
 // $I->amOnPage('/path/to/form-page') may be needed
-$I->seeInFormFields('//form[ * `id=my-form]',`  $form);
+$I->seeInFormFields('//form[@id=my-form]', $form);
 ?>
 ```
 
  * `param` $formSelector
  * `param` $params
 
-
 ### seeInSession
- 
+
 Assert that a session variable exists.
 
 ``` php
@@ -1365,9 +1350,8 @@ $I->seeInSession('key', 'value');
  * `param`  mixed|null $value
  * `return` void
 
-
 ### seeInSource
- 
+
 Checks that the current page contains the given string in its
 raw source code.
 
@@ -1378,9 +1362,8 @@ $I->seeInSource('<h1>Green eggs &amp; ham</h1>');
 
  * `param`      $raw
 
-
 ### seeInTitle
- 
+
 Checks that the page title contains the given string.
 
 ``` php
@@ -1391,10 +1374,8 @@ $I->seeInTitle('Blog - Post #1');
 
  * `param` $title
 
-
-
 ### seeLink
- 
+
 Checks that there's a link with the specified text.
 Give a full URL as the second parameter to match links with that exact URL.
 
@@ -1405,28 +1386,41 @@ $I->seeLink('Logout','/logout'); // matches <a href="/logout">Logout</a>
 ?>
 ```
 
- * `param`      $text
- * `param null` $url
+ * `param string` $text
+ * `param string` $url optional
 
+### seeNumRecords
+
+Checks that number of given records were found in database.
+You can pass the name of a database table or the class name of an Eloquent model as the first argument.
+
+``` php
+<?php
+$I->seeNumRecords(1, 'users', array('name' => 'davert'));
+$I->seeNumRecords(1, 'App\User', array('name' => 'davert'));
+?>
+```
+
+ * `param integer` $expectedNum
+ * `param string` $table
+ * `param array` $attributes
+ * `[Part]` orm
 
 ### seeNumberOfElements
- 
+
 Checks that there are a certain number of elements matched by the given locator on the page.
 
 ``` php
 <?php
 $I->seeNumberOfElements('tr', 10);
-$I->seeNumberOfElements('tr', [0,10]); //between 0 and 10 elements
+$I->seeNumberOfElements('tr', [0,10]); // between 0 and 10 elements
 ?>
 ```
  * `param` $selector
- * `param mixed` $expected :
-- string: strict number
-- array: range of numbers [0,10]
-
+ * `param mixed` $expected int or int[]
 
 ### seeOptionIsSelected
- 
+
 Checks that the given option is selected.
 
 ``` php
@@ -1438,15 +1432,12 @@ $I->seeOptionIsSelected('#form input[name=payment]', 'Visa');
  * `param` $selector
  * `param` $optionText
 
-
-
 ### seePageNotFound
- 
+
 Asserts that current page has 404 response status code.
 
-
 ### seeRecord
- 
+
 Checks that record exists in database.
 You can pass the name of a database table or the class name of an Eloquent model as the first argument.
 
@@ -1461,9 +1452,8 @@ $I->seeRecord('App\User', array('name' => 'davert'));
  * `param array` $attributes
  * `[Part]` orm
 
-
 ### seeResponseCodeIs
- 
+
 Checks that response code is equal to value provided.
 
 ```php
@@ -1476,9 +1466,8 @@ $I->seeResponseCodeIs(\Codeception\Util\HttpCode::OK);
 
  * `param` $code
 
-
 ### seeSessionHasValues
- 
+
 Assert that the session has a given list of values.
 
 ``` php
@@ -1491,16 +1480,15 @@ $I->seeSessionHasValues(['key1' => 'value1', 'key2' => 'value2']);
  * `param`  array $bindings
  * `return` void
 
-
 ### selectOption
- 
+
 Selects an option in a select tag or in radio button group.
 
 ``` php
 <?php
 $I->selectOption('form select[name=account]', 'Premium');
 $I->selectOption('form input[name=payment]', 'Monthly');
-$I->selectOption('//form/select[ * `name=account]',`  'Monthly');
+$I->selectOption('//form/select[@name=account]', 'Monthly');
 ?>
 ```
 
@@ -1524,9 +1512,8 @@ $I->selectOption('Which OS do you use?', array('value' => 'windows')); // Only s
  * `param` $select
  * `param` $option
 
-
 ### sendAjaxGetRequest
- 
+
 If your page triggers an ajax request, you can perform it manually.
 This action sends a GET ajax request with specified params.
 
@@ -1535,9 +1522,8 @@ See ->sendAjaxPostRequest for examples.
  * `param` $uri
  * `param` $params
 
-
 ### sendAjaxPostRequest
- 
+
 If your page triggers an ajax request, you can perform it manually.
 This action sends a POST ajax request with specified params.
 Additional params can be passed as array.
@@ -1557,9 +1543,8 @@ $I->sendAjaxGetRequest('/updateSettings', array('notifications' => true)); // GE
  * `param` $uri
  * `param` $params
 
-
 ### sendAjaxRequest
- 
+
 If your page triggers an ajax request, you can perform it manually.
 This action sends an ajax request with specified method and params.
 
@@ -1577,14 +1562,12 @@ $I->sendAjaxRequest('PUT', '/posts/7', array('title' => 'new title'));
  * `param` $uri
  * `param` $params
 
-
 ### setApplication
- 
+
  * `param` $app
 
-
 ### setCookie
- 
+
 Sets a cookie with the given name and value.
 You can set additional cookie params like `domain`, `path`, `expires`, `secure` in array passed as last argument.
 
@@ -1598,11 +1581,9 @@ $I->setCookie('PHPSESSID', 'el4ukv0kqbvoirg7nkp4dncpk3');
  * `param` $val
  * `param array` $params
 
-
-
 ### submitForm
- 
-Submits the given form on the page, optionally with the given form
+
+Submits the given form on the page, with the given form
 values.  Pass the form field's values as an array in the second
 parameter.
 
@@ -1772,9 +1753,8 @@ $I->submitForm('#my-form', [
  * `param` $params
  * `param` $button
 
-
 ### switchToIframe
- 
+
 Switch to iframe or frame on the page.
 
 Example:
@@ -1790,9 +1770,8 @@ $I->switchToIframe("another_frame");
 
  * `param string` $name
 
-
 ### uncheckOption
- 
+
 Unticks a checkbox.
 
 ``` php
@@ -1803,4 +1782,4 @@ $I->uncheckOption('#notify');
 
  * `param` $option
 
-<p>&nbsp;</p><div class="alert alert-warning">Module reference is taken from the source code. <a href="https://github.com/Codeception/Codeception/tree/2.2/src/Codeception/Module/Laravel5.php">Help us to improve documentation. Edit module reference</a></div>
+<p>&nbsp;</p><div class="alert alert-warning">Module reference is taken from the source code. <a href="https://github.com/Codeception/Codeception/tree/2.3/src/Codeception/Module/Laravel5.php">Help us to improve documentation. Edit module reference</a></div>

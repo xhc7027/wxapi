@@ -1,6 +1,5 @@
 # Sequence
 
-
 Sequence solves data cleanup issue in alternative way.
 Instead cleaning up the database between tests,
 you can use generated unique names, that should not conflict.
@@ -92,7 +91,6 @@ Sequence:
     prefix: '{id}.'
 ```
 
-
 ## Actions
 
-<p>&nbsp;</p><div class="alert alert-warning">Module reference is taken from the source code. <a href="https://github.com/Codeception/Codeception/tree/2.2/src/Codeception/Module/Sequence.php">Help us to improve documentation. Edit module reference</a></div>
+<p>&nbsp;</p><div class="alert alert-warning">Module reference is taken from the source code. <a href="https://github.com/Codeception/Codeception/tree/2.3/src/Codeception/Module/Sequence.php">Help us to improve documentation. Edit module reference</a></div>

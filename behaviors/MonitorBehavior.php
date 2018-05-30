@@ -116,7 +116,7 @@ class MonitorBehavior extends Behavior
     {
         $actionId = $event->action->id;
 
-        if ($event->result instanceof yii\base\Object) {
+        if ($event->result instanceof yii\base\BaseObject) {
             $this->reqLogModel->respStr = json_encode($event->result);
         } else {
             $this->reqLogModel->respStr = $event->result;
