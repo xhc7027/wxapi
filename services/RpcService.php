@@ -296,6 +296,7 @@ class RpcService
         $model = AppInfo::find()->select(['headImg', 'nickName', 'verifyTypeInfo', 'qrcodeUrl', 'wxId as id', 'appId', 'serviceTypeInfo'])
             ->where(['wxId' => $wxid])->asArray()->one();
         if (!$model) {
+            Yii::error('获取商家公众号信息错误, 错误的wxid是' . $wxid);
             return new RespMsg(['return_code' => RespMsg::FAIL]);
         }
         return new RespMsg(['return_msg' => $model]);
