@@ -4,6 +4,7 @@ namespace app\services;
 
 use app\commons\FileUtil;
 use app\models\RespMsg;
+use app\models\AppInfo;
 use Yii;
 use app\models\TsMsgSupplierFounder;
 
@@ -282,5 +283,22 @@ class RpcService
             $respMsg->return_code = RespMsg::FAIL;
         }
         return $respMsg->toArray();
+    }
+
+    /**
+     * 获取商家的公众号信息
+     *
+     * @param int $wxid 微信id(商家id)
+     * @return RespMsg
+     */
+    public function getAppInfo(int $wxid)
+    {
+        $model = AppInfo::find()->select(['headImg', 'nickName', 'verifyTypeInfo', 'qrcodeUrl', 'wxId as id', 'appId', 'serviceTypeInfo'])
+            ->where(['wxId' => $wxid])->asArray()->one();
+        if (!$model) {
+            Yii::error('获取商家公众号信息错误, 错误的wxid是' . $wxid);
+            return new RespMsg(['return_code' => RespMsg::FAIL]);
+        }
+        return new RespMsg(['return_msg' => $model]);
     }
 }
