@@ -323,6 +323,6 @@ class RpcService
             $respMsg->return_msg = $e->getMessage();
             $respMsg->return_code = RespMsg::FAIL;
         }
-        return $respMsg->toArray();
+        return $respMsg;
     }
 }
