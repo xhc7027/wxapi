@@ -5,6 +5,7 @@ namespace app\services;
 use app\commons\FileUtil;
 use app\models\RespMsg;
 use app\models\AppInfo;
+use app\exceptions\SystemException;
 use Yii;
 use app\models\TsMsgSupplierFounder;
 
@@ -300,5 +301,28 @@ class RpcService
             return new RespMsg(['return_code' => RespMsg::FAIL]);
         }
         return new RespMsg(['return_msg' => $model]);
+    }
+
+    /**
+     * 通过openId获取用户的信息
+     *
+     * @param string $appId 公众号id
+     * @param string $openId
+     * @return RespMsg
+     */
+    public function getUserInfoByOpenId(string $appId, string $openId)
+    {
+        $respMsg = new RespMsg();
+        try {
+            $respMsg->return_msg = Yii::$app->weiXinService->getUserInfoByOpenId($appId, $openId);
+        } catch (SystemException $e) {
+            $respMsg->return_msg = $e->getMessage();
+            $respMsg->return_code = RespMsg::FAIL;
+        } catch (\Exception $e) {
+            Yii::error('通过openId获取用户信息失败, 失败的appId是' . $appId . ', openId是' . $openId, __METHOD__);
+            $respMsg->return_msg = $e->getMessage();
+            $respMsg->return_code = RespMsg::FAIL;
+        }
+        return $respMsg->toArray();
     }
 }

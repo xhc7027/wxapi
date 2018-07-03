@@ -1010,4 +1010,42 @@ class WeiXinService
 
         return $resMsg->return_msg;
     }
+
+    /**
+     * 通过openId获取用户的信息
+     *
+     * @param string $appId 公众号id
+     * @param string $openId
+     * @return RespMsg
+     * @throws SystemException
+     */
+    public function getUserInfoByOpenId(string $appId, string $openId)
+    {
+        //获取该公众号
+        $appInfo = AppInfo::findOne($appId);
+        if (!$appInfo) {
+            Yii::error("公众号:" . $appId . '不存在', __METHOD__);
+            throw new SystemException('公众号:' . $appId . '不存在');
+        }
+        // 获取accessToken
+        $accessTokenResp = $this->getAppAccessToken($appInfo);
+        if (!isset($accessTokenResp->return_msg['accessToken'])) {
+            Yii::error('获取access_token失败, 失败的appId信息是' . json_encode($appInfo) . ', 通过getAppAccessToken的
+            方法获取返回的结果是' . json_encode($accessTokenResp), __METHOD__);
+            throw new SystemException("获取access_token失败");
+        }
+        // 组装获取用户信息的url地址
+        $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/user/info';
+        $params = [
+            'access_token' => $accessTokenResp->return_msg['accessToken'],
+            'openid' => $openId,
+            'lang' => 'zh_CN',
+        ];
+        // 调用微信api获取用户信息
+        $res = HttpUtil::get($url, http_build_query($params));
+        if ($res->return_code == RespMsg::FAIL) {
+            throw new SystemException("调用微信api获取用户信息失败");
+        }
+        return $res->return_msg;
+    }
 }
