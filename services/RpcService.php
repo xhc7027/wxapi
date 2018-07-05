@@ -309,6 +309,15 @@ class RpcService
      * @param string $appId 公众号id
      * @param string $openId
      * @return RespMsg
+     * {
+     *      'return_code' : 'SUCCESS',
+     *      'return_msg' : {
+     *          'headimgurl' : 'xxxxxx',
+     *          'nickname' : 'xxxxxx',
+     *          'openid' : 'xxxxxx',
+     *          'unionid' : 'xxxxxx',
+     *      }
+     * }
      */
     public function getUserInfoByOpenId(string $appId, string $openId)
     {
