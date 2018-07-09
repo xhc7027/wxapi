@@ -1044,7 +1044,7 @@ class WeiXinService
         // 调用微信api获取用户信息
         $res = HttpUtil::get($url, http_build_query($params));
         if ($res->return_code == RespMsg::FAIL) {
-            throw new SystemException("调用微信api获取用户信息失败");
+            throw new SystemException(json_encode($res->return_msg));
         }
         return $res->return_msg;
     }
