@@ -7,7 +7,7 @@ $dbParams = require(__DIR__ . '/test_db.php');
  */
 return [
     'id' => 'weiXinApi-tests',
-    'basePath' => dirname(__DIR__),    
+    'basePath' => dirname(__DIR__),
     'language' => 'en-US',
     'components' => [
         'db' => $dbParams,

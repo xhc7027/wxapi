@@ -9,9 +9,13 @@ use app\commons\wx\WXBizMsgCrypt;
 use app\models\AppInfo;
 use app\models\TsMsgSupplierFounder;
 use app\models\RespMsg;
+use app\models\TopicMsg;
 use app\services\SecurityService;
+use app\services\TopicService;
 use app\services\WeiXinService;
 use Curl\Curl;
+use Idouzi\Commons\Exceptions\SystemException;
+use Idouzi\Commons\QCloud\TencentQueueUtil;
 use yii;
 use yii\base\InvalidParamException;
 use yii\web\Controller;
@@ -270,9 +274,11 @@ class ComponentController extends Controller
 
         //获取授权方的公众号帐号基本信息
         $model->getAuthorizeInfo($componentAccessToken);
-        //同步豆来购更新公众号数据
-        $queueData = ['headImg' => $model->headImg, 'nickName' => $model->nickName, 'verifyTypeInfo' => $model->verifyTypeInfo, 'qrcodeUrl' => $model->qrcodeUrl, 'id' => $model->wxId, 'appId' => $model->appId, 'serviceTypeInfo' => $model->serviceTypeInfo];
-        (new TsMsgSupplierFounder())->insertData(json_encode($queueData));
+        //其他系统同步更新公众号数据
+        $queueData = ['headImg' => $model->headImg, 'nickName' => $model->nickName,
+            'verifyTypeInfo' => $model->verifyTypeInfo, 'qrcodeUrl' => $model->qrcodeUrl,
+            'id' => $model->wxId, 'appId' => $model->appId, 'serviceTypeInfo' => $model->serviceTypeInfo];
+        TopicService::insertData($queueData, '重新绑定');
 
         //通知回爱豆子
         $params = ['r' => 'supplier/index/index', 'appId' => $model->appId, 'timestamp' => time()];
@@ -286,6 +292,7 @@ class ComponentController extends Controller
         $this->redirect(Yii::$app->params['domains']['idouzi']
             . '/supplier/index/index?' . http_build_query($params) . '&sign=' . $sign);
     }
+
 
     /**
      * 判断此次绑定是否合法

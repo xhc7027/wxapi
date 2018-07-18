@@ -102,6 +102,7 @@ class MonitorBehavior extends Behavior
         } else {
             $this->reqLogModel->type = 1;
             $this->reqLogModel->postStr = json_encode($_POST);
+
         }
         $this->reqLogModel->appId = $appid;
 

@@ -109,4 +109,14 @@ class TimeUtil
     {
         return date('Y-m-d', strtotime($date));
     }
+
+    /**
+     * 获取距离凌晨的秒数
+     *
+     * @return false|int
+     */
+    public static function getDistanceTomorrowTime()
+    {
+        return strtotime(date('Y-m-d', strtotime('+1 day'))) - time();
+    }
 }

@@ -54,7 +54,9 @@ class FacadeController extends Controller
             ],
             'access' => [
                 'class' => SupplierAccessFilter::className(),
-                'actions' => ['bind-page', 'openid', 'web-page', 'app-info-clear-quota', 'get-accesstoken', 'get-supplier-nick-name', ' get-article-list', 'get-wx-info', 'get-app-info', 'get-media-info']
+                'actions' => ['bind-page', 'openid', 'web-page', 'app-info-clear-quota',
+                    'get-accesstoken', 'get-supplier-nick-name', ' get-article-list', 'get-wx-info',
+                    'get-app-info', 'get-media-info']
             ],
             'apiAccess' => [
                 'class' => 'app\behaviors\ApiAccessFilter',
@@ -507,6 +509,70 @@ class FacadeController extends Controller
     }
 
     /**
+     * 通过appid获取用户supplierId
+     * @param $appId
+     * @param $type
+     * @return null|string
+     */
+    public function actionGetSupplierId($appId, $type)
+    {
+        $respMsg = new RespMsg();
+
+        $respMsg->return_msg = AppInfo::getSupplierIdByAppId($appId);
+        if ($respMsg->return_msg) {
+            $respMsg->return_code = RespMsg::SUCCESS;
+        } else {
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '没有找到关于' . $appId . '的信息。';
+        }
+
+        return $respMsg->toJsonStr();
+    }
+
+    /**
+     * 通过appid获取用户supplierId
+     * @return null|string
+     * @internal param $appId
+     * @internal param $type
+     */
+    public function actionGetSupplierIds()
+    {
+        $appIds = Yii::$app->request->post('appIds');
+        $respMsg = new RespMsg();
+        $respMsg->return_msg = AppInfo::getSupplierIdByAppIds($appIds);
+        if ($respMsg->return_msg) {
+            $respMsg->return_code = RespMsg::SUCCESS;
+        } else {
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '没有找到关于' . json_encode($appIds) . '的信息。';
+        }
+
+        return $respMsg->toJsonStr();
+    }
+
+    /**
+     * 判断appId对应的wxId是否存在
+     * 如果存在则更新，不存在则不做操作
+     */
+    public function actionJudgeAppIdExist()
+    {
+        $respMsg = new RespMsg();
+        $supplierId = Yii::$app->request->post('wxId');
+        $appId = Yii::$app->request->post('appId');
+        if (!isset($supplierId) || !isset($appId)) {
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = "请求参数错误";
+        } else {
+            $reappId = AppInfo::judgeAppIdExist($supplierId);
+            if($reappId == $appId)
+            {
+
+            }
+        }
+    }
+
+
+    /**
      * 获取第三方公众号信息
      */
     public function actionComponentInfo()
@@ -568,7 +634,7 @@ class FacadeController extends Controller
     }
 
     /**
-     *  根据wxid
+     * 根据wxid
      * @param null $appId
      * @return null|string
      */
@@ -662,6 +728,7 @@ class FacadeController extends Controller
                 Yii::warning('调用新增其他类型永久素材接口错误：' . json_encode($form->getFirstErrors()), __METHOD__);
                 throw new SystemException('非法参数。');
             }
+
 
             $respMsg->return_msg = Yii::$app->weiXinService->materialAddMaterialForImage(
                 Yii::$app->session->get(Yii::$app->params['constant']['sessionName']['supplierId']),
@@ -761,7 +828,7 @@ class FacadeController extends Controller
         return $respMsg->toJsonStr();
     }
 
-    /*
+    /**
      * 根据wxid获取公众号的图文列表 get-article-list
      * 测试appid wx07618f660579cf07
      * 默认获取news图文素材
@@ -906,6 +973,7 @@ class FacadeController extends Controller
      * @param string $data 工作通post过来的动态数据
      * @param string $accessToken 微信token
      * @return object
+     * @throws SystemException
      */
     private function getIdouziMessage($msgType, $data, $accessToken)
     {
@@ -954,7 +1022,8 @@ class FacadeController extends Controller
      *  腾讯云上传文件和图片到工作通
      * @param string $filePath 文件的临时地址
      * @param string $type 文件后缀名
-     * @return null|array 返回cos地址以及部分扩展信息
+     * @return array|null 返回cos地址以及部分扩展信息
+     * @throws SystemException
      */
     private function upFile($filePath, $type = 'png')
     {
@@ -1008,6 +1077,7 @@ class FacadeController extends Controller
      * 调用工作通接口
      * @param array $data 接口参数
      * @return array 接口返回数据
+     * @throws SystemException
      */
     private function getIdouziApi($data = null)
     {

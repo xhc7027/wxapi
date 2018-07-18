@@ -95,8 +95,9 @@ class IpUtil
         $res = self::lookupCityByIP();
 
         return [
-            'province' => isset($res['province']) && $res['province'] ? $res['province'] : '',
-            'city' => isset($res['city']) && $res['city'] ? $res['city'] : ''
+            'province' => $res['province'] ?? '',
+            'city' => $res['city'] ?? '',
+            'country' => $res['country'] ?? ''
         ];
     }
 
@@ -109,37 +110,42 @@ class IpUtil
     {
         $exp['browser'] = null;
         $exp['version'] = null;
-        $sys = $_SERVER['HTTP_USER_AGENT'];  //获取用户代理字符串
-        if (stripos($sys, "Firefox/") > 0) {
-            preg_match("/Firefox\/([^;)]+)+/i", $sys, $b);
-            $exp['browser'] = "Firefox";
-            $exp['version'] = $b[1];  //获取火狐浏览器的版本号
-        } elseif (stripos($sys, "Maxthon") > 0) {
-            preg_match("/Maxthon\/([\d\.]+)/", $sys, $aoyou);
-            $exp['browser'] = "傲游";
-            $exp['version'] = $aoyou[1];
-        } elseif (stripos($sys, "MSIE") > 0) {
-            preg_match("/MSIE\s+([^;)]+)+/i", $sys, $ie);
-            $exp['browser'] = "IE";
-            $exp['version'] = $ie[1];  //获取IE的版本号
-        } elseif (stripos($sys, "OPR") > 0) {
-            preg_match("/OPR\/([\d\.]+)/", $sys, $opera);
-            $exp['browser'] = "Opera";
-            $exp['version'] = $opera[1];
-        } elseif (stripos($sys, "Edge") > 0) {
-            //win10 Edge浏览器 添加了chrome内核标记 在判断Chrome之前匹配
-            preg_match("/Edge\/([\d\.]+)/", $sys, $Edge);
-            $exp['browser'] = "Edge";
-            $exp['version'] = $Edge[1];
-        } elseif (stripos($sys, "Chrome") > 0) {
-            preg_match("/Chrome\/([\d\.]+)/", $sys, $google);
-            $exp['browser'] = "Chrome";
-            $exp['version'] = $google[1];  //获取google chrome的版本号
-        } elseif (stripos($sys, 'rv:') > 0 && stripos($sys, 'Gecko') > 0) {
-            preg_match("/rv:([\d\.]+)/", $sys, $IE);
-            $exp['browser'] = "IE";
-            $exp['version'] = $IE[1];
+        try {
+            $sys = $_SERVER['HTTP_USER_AGENT'];  //获取用户代理字符串
+            if (stripos($sys, "Firefox/") > 0) {
+                preg_match("/Firefox\/([^;)]+)+/i", $sys, $b);
+                $exp['browser'] = "Firefox";
+                $exp['version'] = $b[1];  //获取火狐浏览器的版本号
+            } elseif (stripos($sys, "Maxthon") > 0) {
+                preg_match("/Maxthon\/([\d\.]+)/", $sys, $aoyou);
+                $exp['browser'] = "傲游";
+                $exp['version'] = $aoyou[1];
+            } elseif (stripos($sys, "MSIE") > 0) {
+                preg_match("/MSIE\s+([^;)]+)+/i", $sys, $ie);
+                $exp['browser'] = "IE";
+                $exp['version'] = $ie[1];  //获取IE的版本号
+            } elseif (stripos($sys, "OPR") > 0) {
+                preg_match("/OPR\/([\d\.]+)/", $sys, $opera);
+                $exp['browser'] = "Opera";
+                $exp['version'] = $opera[1];
+            } elseif (stripos($sys, "Edge") > 0) {
+                //win10 Edge浏览器 添加了chrome内核标记 在判断Chrome之前匹配
+                preg_match("/Edge\/([\d\.]+)/", $sys, $Edge);
+                $exp['browser'] = "Edge";
+                $exp['version'] = $Edge[1];
+            } elseif (stripos($sys, "Chrome") > 0) {
+                preg_match("/Chrome\/([\d\.]+)/", $sys, $google);
+                $exp['browser'] = "Chrome";
+                $exp['version'] = $google[1];  //获取google chrome的版本号
+            } elseif (stripos($sys, 'rv:') > 0 && stripos($sys, 'Gecko') > 0) {
+                preg_match("/rv:([\d\.]+)/", $sys, $IE);
+                $exp['browser'] = "IE";
+                $exp['version'] = $IE[1];
+            }
+        } catch (\Exception $e) {
+            Yii::error('获取浏览器信息失败,error=' . $e->getMessage());
         }
+
         return $exp;
     }
 

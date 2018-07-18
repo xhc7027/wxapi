@@ -347,7 +347,7 @@ class AppInfo extends ActiveRecord
     }
 
     /**
-     *  判断返回二维码是否存在
+     * 判断返回二维码是否存在
      * @param $qrcodeUrl
      * @param $userName
      * @return string
@@ -361,5 +361,43 @@ class AppInfo extends ActiveRecord
             $qrcodeUrl = Yii::$app->params['tencent']['qrcodeUrl'] . $userName;
         }
         return $this->uploadImage($qrcodeUrl);
+    }
+
+    /**
+     * 根据appId获取用户supplierId
+     * @param $appIds
+     * @return array
+     * @internal param $appId
+     */
+    public function getSupplierIdByAppIds($appIds)
+    {
+        if (!$appIds) {
+            return [];
+        }
+        return self::find()->select(['wxId', 'appId'])->where(['in', 'appId', $appIds])->asArray()->all();
+    }
+
+    /**
+     * 根据用户appId获取用户supplierId
+     * @param $appId
+     * @return array|null|ActiveRecord
+     */
+    public function getSupplierIdByAppId($appId)
+    {
+        if (!$appId) {
+            return [];
+        }
+        return self::find()->select(['wxId'])->where(['appId' => $appId])->asArray()->one();
+    }
+
+    /**
+     * 判断用户id是否存在对应的appId
+     * @param $supplierId
+     * @return array|null|ActiveRecord
+     * @internal param $appId
+     */
+    public function judgeAppIdExist($supplierId)
+    {
+        return self::find()->select(['appId'])->where(['wxId' => $supplierId])->asArray()->all();
     }
 }
