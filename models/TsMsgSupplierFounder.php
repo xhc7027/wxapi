@@ -33,8 +33,7 @@ class TsMsgSupplierFounder extends ActiveRecord
     /**
      * 插入公众号换绑的数据
      *
-     * @param array $data
-     *
+     * @param string $data
      * @return bool
      * @throws ModelValidateException
      */
@@ -45,39 +44,7 @@ class TsMsgSupplierFounder extends ActiveRecord
         if (!$this->insert()) {
             throw new ModelValidateException(current($this->getFirstErrors()));
         }
-        return true;
-    }
-
-    /**
-     * 删除公众号换绑的数据
-     *
-     * @param sting $tsId
-     *
-     * @return bool
-     * @throws ModelValidateException
-     */
-    public function deteleData(string $tsId)
-    {
-        $model = self::findOne($tsId);
-        if (!$model) {
-            Yii::warning('删除公众号换绑事务tsid' . $tsId . '不存在', __METHOD__);
-            return true;
-        }
-        if (!$model->delete()) {
-            throw new ModelValidateException(current($this->getFirstErrors()));
-        }
-        return true;
-    }
-
-    /**
-     * 查找公众号换绑的数据
-     * @return array
-     * @throws ModelValidateException
-     */
-    public function selectData()
-    {
-        $sql = 'SELECT `tsId`,`data` FROM `ts_msg_supplier_founder` limit 5';
-        return  self::findBySql($sql)->asArray()->all();
+        return $this->tsId;
     }
 
 }

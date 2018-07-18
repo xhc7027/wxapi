@@ -28,6 +28,7 @@ class StringUtil
 
     /**
      * 手机号的判断条件 兼容到香港乃至全球地区
+     *
      * @param $num
      * @return bool
      */
@@ -68,7 +69,6 @@ class StringUtil
 
     /**
      * <p>从文件链接中拆解出文件后缀名</p>
-     *
      * 如果文件路径没有后缀名，则返回默认的文件后缀
      *
      * @param string $url 本地文件路径或远程文件路径
@@ -96,7 +96,6 @@ class StringUtil
         return substr(sprintf("%." . $n . "f", $num), 0, -1);
     }
 
-
     /**
      * 获取事务id
      *
@@ -105,5 +104,17 @@ class StringUtil
     public static function getTsId()
     {
         return 'tsId' . md5('tsId@' . time() . '@tsId@' . self::genRandomStr(8));
+    }
+
+    /*
+     * 对手机号做脱敏处理
+     * @param string $phone
+     * @param int $start
+     * @param int $length
+     * @return mixed
+     */
+    public static function maskPhone($phone, $start = 3, $length = 4)
+    {
+        return substr_replace($phone, "****", $start, $length);
     }
 }
