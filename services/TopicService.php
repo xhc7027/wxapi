@@ -11,6 +11,7 @@ namespace app\services;
 use app\models\TopicMsg;
 use app\models\TsMsgSupplierFounder;
 use Idouzi\Commons\QCloud\TencentQueueUtil;
+use Yii;
 
 class TopicService
 {
@@ -49,7 +50,7 @@ class TopicService
             Yii::error('用户解绑数据插入到数据库失败' . json_encode($data));
         }
         //发送数据到消息队列
-        if (!self::publish($id, $data)) {
+        if (!self::publish($id, json_encode($data))) {
             Yii::error('用户发送消息队列失败' . json_encode($data));
         }
     }
