@@ -166,6 +166,20 @@ class HttpUtil
     }
 
     /**
+     * 发送一个POST请求
+     *
+     * @param $url
+     * @param $params
+     * @param $header
+     * @return RespMsg
+     * @throws \ErrorException
+     */
+    public static function sendFile($url, $params = null, $header = null)
+    {
+        return self::http($url, self::POST, $params, $header, true);
+    }
+
+    /**
      * 发送一个HTTP请求<br>
      * 向指定的链接发送一个HTTP请求
      *
@@ -176,9 +190,9 @@ class HttpUtil
      * @return RespMsg 返回响应内容
      * @throws \ErrorException
      */
-    public static function http($url, $method, $params, $header = null)
+    public static function http($url, $method, $params, $header = null, $sendFile = false)
     {
-        $curl = new Curl();
+        $curl = $sendFile ? (new CurlUtil())->setHttpBuildQuery(!$sendFile) : new Curl();
         if ($header) {
             if (is_array($header)) {
                 foreach ($header as $key => $value) {
@@ -200,8 +214,12 @@ class HttpUtil
             $respMsg->return_code = RespMsg::FAIL;
             $respMsg->return_msg = '请求对方服务异常';
         } else {
-            //判断业务处理状态
-            $response = json_decode($curl->response);
+            if (in_array(substr($curl->response_headers[2], 14), ['image/jpeg'])) {
+                $response = $curl->response;
+            } else {
+                //判断业务处理状态
+                $response = json_decode($curl->response);
+            }
             if (!$response) {
                 Yii::error(!$response . '调用接口：' . $url . '，参数：' . json_encode($header) . '，返回不正常信息：' . $curl->response, __METHOD__);
                 $respMsg->return_code = RespMsg::FAIL;

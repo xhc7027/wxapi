@@ -2,6 +2,7 @@
 
 namespace Idouzi\Commons;
 
+use Idouzi\Commons\QCloud\TencentQueueUtil;
 use Yii;
 
 /**

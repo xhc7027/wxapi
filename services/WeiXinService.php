@@ -10,12 +10,14 @@ use app\exceptions\SystemException;
 use app\models\AppInfo;
 use app\models\ComponentInfo;
 use app\models\RespMsg;
+use app\models\TopicMsg;
 use app\models\WebUserAuthInfo;
 use Curl\Curl;
 use Yii;
 use yii\base\ErrorException;
 use yii\base\InvalidParamException;
 use yii\web\Cookie;
+use Idouzi\Commons\QCloud\TencentQueueUtil;
 
 /**
  * 公众号第三方平台业务处理
@@ -64,6 +66,9 @@ class WeiXinService
      */
     public function handleChangeAuthorization($decodeXMLObj)
     {
+        //发送用户授权信息到消息队列
+        TopicService::insertData($decodeXMLObj, '解绑');
+
         //先保存推送过来的变更信息
         $appInfo = AppInfo::findOne(strval($decodeXMLObj->AuthorizerAppid[0]));
         if (!$appInfo) {
@@ -107,26 +112,18 @@ class WeiXinService
             $tmpAppInfo->infoType = self::UNAUTHORIZED;
             $tmpAppInfo->insert();
 
-            //主动通知爱豆子此用户已经取消绑定
-            $curl = new Curl();
-            $params = [
-                'appId' => $appInfo->appId,
-                'apikey' => 839,
-                'r' => 'supplier/api/unbundling',
-                'timestamp' => time(),
-            ];
-            try {
-                $sign = (new SecurityUtil($params, Yii::$app->params['publicKeys']['idouzi']))->generateSign();
-                $params['sign'] = $sign;
-                $curl->get(Yii::$app->params['domains']['idouzi'] . '/index.php', $params);
-                if ($curl->error) {
-                    Yii::error('主动通知爱豆子用户:' . $appInfo->appId . '取消绑定时发现错误', __METHOD__);
-                }
-            } catch (InvalidParamException $e) {
-                Yii::error('在对参数:' . json_encode($params) . ',签名时发现错误:' . $e->getMessage(), __METHOD__);
-            }
         }
 
+    }
+
+
+    /**
+     *
+     * @param $decodeXMLObj
+     */
+    private function queueAuthorization($decodeXMLObj)
+    {
+        TencentQueueUtil::publishMessage(Yii::$app->params['topic']['topicAuthorizerInfo'], json_encode($decodeXMLObj));
     }
 
     /**
@@ -140,7 +137,7 @@ class WeiXinService
 
         //判断缓存中是否存在令牌
         $key = 'component_access_token_' . Yii::$app->params['wxConfig']['appId'];
-        if(Yii::$app->params['accessTokenUseCache']){
+        if (Yii::$app->params['accessTokenUseCache']) {
             try {
                 $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
                 if ($accessTokenAry) {
@@ -203,7 +200,7 @@ class WeiXinService
         //判断缓存中是否存在令牌
         $key = 'app_access_token_' . $appInfo->appId;
         //通过配置使获取token能调用缓存
-        if(Yii::$app->params['accessTokenUseCache']){
+        if (Yii::$app->params['accessTokenUseCache']) {
             try {
                 $accessTokenAry = json_decode(Yii::$app->cache->get($key), true);
                 if ($accessTokenAry) {
@@ -651,6 +648,7 @@ class WeiXinService
      * 刷新并保存token
      * @param $appId string 公众号id
      * @param $tokenInfo array token信息
+     * @param string $queryAppId
      * @return bool|string 成功则是网页授权access_token，反之是false
      */
     private function refreshAndSaveWebToken(string $appId, array $tokenInfo, string $queryAppId = '')
@@ -680,6 +678,7 @@ class WeiXinService
      * 通过缓存或数据库获取网页授权access_token
      * @param string $openId
      * @param string $appId 公众号id
+     * @param string $queryAppId
      * @return null|string
      * @throws SystemException
      */
@@ -696,7 +695,7 @@ class WeiXinService
             return $tokenInfo['accessToken'];
         }
         $accessToken = $this->refreshAndSaveWebToken($appId, $tokenInfo, $queryAppId);
-        if($accessToken){
+        if ($accessToken) {
             return $accessToken;
         }
 
@@ -1009,5 +1008,43 @@ class WeiXinService
         }
 
         return $resMsg->return_msg;
+    }
+
+    /**
+     * 通过openId获取用户的信息
+     *
+     * @param string $appId 公众号id
+     * @param string $openId
+     * @return RespMsg
+     * @throws SystemException
+     */
+    public function getUserInfoByOpenId(string $appId, string $openId)
+    {
+        //获取该公众号
+        $appInfo = AppInfo::findOne($appId);
+        if (!$appInfo) {
+            Yii::error("公众号:" . $appId . '不存在', __METHOD__);
+            throw new SystemException('公众号:' . $appId . '不存在');
+        }
+        // 获取accessToken
+        $accessTokenResp = $this->getAppAccessToken($appInfo);
+        if (!isset($accessTokenResp->return_msg['accessToken'])) {
+            Yii::error('获取access_token失败, 失败的appId信息是' . json_encode($appInfo) . ', 通过getAppAccessToken的
+            方法获取返回的结果是' . json_encode($accessTokenResp), __METHOD__);
+            throw new SystemException("获取access_token失败");
+        }
+        // 组装获取用户信息的url地址
+        $url = Yii::$app->params['wxConfig']['appUrl'] . '/cgi-bin/user/info';
+        $params = [
+            'access_token' => $accessTokenResp->return_msg['accessToken'],
+            'openid' => $openId,
+            'lang' => 'zh_CN',
+        ];
+        // 调用微信api获取用户信息
+        $res = HttpUtil::get($url, http_build_query($params));
+        if ($res->return_code == RespMsg::FAIL) {
+            throw new SystemException(json_encode($res->return_msg));
+        }
+        return $res->return_msg;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace app\commands;
 
+use app\exceptions\SystemException;
 use app\models\AppInfo;
 use app\services\migration\DeletedData;
 use app\services\migration\Detector;
@@ -10,6 +11,7 @@ use yii\console\Controller;
 use yii\db\Query;
 use app\models\TsMsgSupplierFounder;
 use Idouzi\Commons\QCloud\TencentQueueUtil;
+
 
 /**
  * 数据同步脚本控制器
@@ -101,50 +103,29 @@ class ScriptController extends Controller
         echo "遍历数据{$iterateCounter}条，保存数据{$saveCounter}条。\n";
     }
 
-    /**
-     * 不断发送公众号换绑事务消息
-     */
-    public function actionTsMsgSupplierFounder()
-    {
-        $queueName = Yii::$app->params['topic']['topicDlgFounderTsMsg'];
-        try {
-            $tsMsgData = TsMsgSupplierFounder::selectData();
-            if (!$tsMsgData) return;
-            $queueData = [];//发送到消息队列的数据
-            foreach ($tsMsgData as $k => $v) {
-                $Reconstruction = [];
-                $Reconstruction = json_decode($v['data'], true);
-                $Reconstruction['tsId'] = $v['tsId'];
-                $queueData[] = json_encode($Reconstruction);
-            }
-            TencentQueueUtil::batchpublishMessage($queueName, $queueData);
-        } catch (\Exception $e) {
-            Yii::warning('不断发送公众号换绑事务消息失败' . $e->getMessage(), __METHOD__);
-        }
-    }
 
     /**
-     * 删除公众号换绑消息
+     *  重新发送用户信息到消息队列
      */
-    public function actionDeleteSupplierFounderTsMsg()
+    public function actionRePublishAuthorizerInfo()
     {
-        $queueName = Yii::$app->params['queueNames']['queueWxApiDeleteFounderTsMsg'];
         try {
-            $queues = TencentQueueUtil::receiveMessage($queueName);
-            if (!$queues) {
-                return;
+            $count = TsMsgSupplierFounder::find()->select(['data'])->where(['status' => 0])->count();
+            if ($count > 20) {
+                throw new SystemException('发送用户授权信息到消息队列失败数已达到20个');
+                Yii::error('发送用户授权信息到消息队列失败数已达到20个');
             }
-            if (!isset($queues->code) || $queues->code !== 0) {
-                TencentQueueUtil::deleteMessage($queueName, $queues->receiptHandle);
-                return;
+            $data = TsMsgSupplierFounder::find()->select(['tsId', 'data'])->where(['status' => 0])->asArray()->all();
+            if ($data) {
+                foreach ($data as $key => $value) {
+                    if (TencentQueueUtil::publishMessage(Yii::$app->params['topic']['topicAuthorizerInfo'], $value['data'])) {
+                        TsMsgSupplierFounder::updateAll(['status' => 1], ['TsId' => $value['tsId']]);
+                    }
+                }
             }
-            $tsId = json_decode($queues->msgBody, true);
-
-            TsMsgSupplierFounder::deteleData($tsId);
-            TencentQueueUtil::deleteMessage($queueName, $queues->receiptHandle);
-
         } catch (\Exception $e) {
-            Yii::warning('删除公众号换绑消息' . $e->getMessage(), __METHOD__);
+            Yii::error('发送用户授权信息到消息队列失败:' . $e->getMessage());
+            throw new SystemException('发送用户授权信息到消息队列失败:' . $e->getMessage());
         }
 
     }
