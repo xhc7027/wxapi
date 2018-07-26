@@ -694,6 +694,12 @@ class WeiXinService
         if (isset($tokenInfo['accessTokenExpire']) && $tokenInfo['accessTokenExpire'] > time()) {
             return $tokenInfo['accessToken'];
         }
+        // 如果没有tokenInfo信息, 则抛出异常
+        if (!is_array($tokenInfo)) {
+            Yii::error('获取tokenInfo信息错误, 请求的数据为: openId:' . $openId . ' appId:' . $appId
+                . ' queryAppId:' . $queryAppId , __METHOD__);
+            throw new SystemException('获取tokenInfo失败');
+        }
         $accessToken = $this->refreshAndSaveWebToken($appId, $tokenInfo, $queryAppId);
         if ($accessToken) {
             return $accessToken;
