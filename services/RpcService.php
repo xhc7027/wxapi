@@ -334,4 +334,25 @@ class RpcService
         }
         return $respMsg;
     }
+
+    /**
+     * 看公众号是否有网页授权获取用户openid/用户基本信息权限
+     *
+     * @param string $appId 公众号id
+     * @return RespMsg
+     */
+    public function getUserManagementAuthorize(string $appId)
+    {
+        $respMsg = new RespMsg();
+        try {
+            $appServices = new AppChooseServices($appId, 'userManagementAuthorize');
+            $respMsg->return_msg = $appServices->getSupplierIdApp();
+        } catch (\Exception $e) {
+            Yii::error('获取公众号网页授权获取用户openid/用户基本信息权限失败, 失败的appId是' . $appId . ', 错误信息是' . $e->getMessage(),
+                __METHOD__);
+            $respMsg->return_code = RespMsg::FAIL;
+            $respMsg->return_msg = '获取公众号权限失败';
+        }
+        return $respMsg;
+    }
 }
