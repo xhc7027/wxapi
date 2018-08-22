@@ -759,7 +759,7 @@ class WeiXinService
             return $resMsg->return_msg->media_id;
         }
 
-        throw new SystemException($resMsg->return_msg->errmsg);
+        throw new SystemException(json_encode($resMsg->return_msg));
     }
 
     /**
